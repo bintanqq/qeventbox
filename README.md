@@ -12,18 +12,18 @@
 - Crates have a lifetime (in seconds) and notify players at half-life.
 - Rewards can be **Event Points**, **commands**, or **items**.
 - Admin commands for spawn, auto-spawn, remove, status, and reload.
-- Shop GUI for exchanging points.
+- Shop GUI for exchanging points to items or whatever.
 - Tab-completion for commands.
 
 ---
 
 ## Installation
 
-1. Make sure your server is running **Spigot / Paper 1.20+**.
+1. Make sure your server is running **Spigot / Paper 1.21.8+**.
 2. Place `QEventBox.jar` in the `plugins/` folder.
 3. Start the server to generate `config.yml`.
 4. Configure crates, spawn times, rewards, and messages in `config.yml`.
-5. Restart or reload the server.
+5. Configure gui in `gui/gui.yml`
 
 ---
 
@@ -33,7 +33,7 @@ Minimal example:
 
 ```yaml
 region:
-  world: world
+  world: world #set world here
   min-x: -500
   max-x: 500
   min-z: -500
@@ -41,17 +41,21 @@ region:
   min-y: 60
 
 crate:
-  amount: 3
-  lifetime-seconds: 300
-  texture: "base64-texture-here"
+  lifetime-seconds: 20 #box time till disappeared
+  allow-multiple-worlds: false #allow multiple worlds
+  texture: "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvYjJjYTk3YzRjZjE5YjU0YjE3MDZhYzk1Zjc5ZmEyODQ5ZmZkZGIwZjYzMDllNzBmZDJkMjQ3MTgwMTYxYmI1NyJ9fX0="
   spawn-times:
-    - "20:00"
-    - "21:30"
-
-messages:
-  auto: "§e§l[QEventBox] AutoSpawn start in %world%"
+    - "20:00" #activate auto box spawn when time is correct
+    - "23:15"
+  amount: 5 #amount of box will be spawned
 
 rewards:
-  - "eventpoints:50"
-  - "command:give %player% minecraft:diamond 1"
-  - "item:DIAMOND:3"
+  - "eventpoints:20"
+  - "item:DIAMOND:1"
+
+messages:
+  start: "§aBox has appeared in {x} {y} {z}!"
+  half: "§6Box will disappear in {time} seconds!"
+  expired: "§cBox vanished due to unclaimed!"
+  claimed: "§b{player} §7has claimed the box!"
+  auto: "§e§l[QEventBox] §aEvent Box has spawned in %world%"
