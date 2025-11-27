@@ -13,12 +13,11 @@ crate:
   spawn-times:
     - "20:00"
     - "23:15"
-  amount: 3
+  amount: 5
 
 rewards:
   - "eventpoints:20"
   - "item:DIAMOND:1"
-  - "command:say %player% got lucky!"
 
 messages:
   start: "§aCrate telah muncul di {x} {y} {z}!"

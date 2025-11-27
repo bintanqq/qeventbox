@@ -27,7 +27,6 @@ public class ShopListener implements Listener {
         e.setCancelled(true);
 
         // logic klik item
-        player.sendMessage("You clicked: " + e.getCurrentItem().getItemMeta().getDisplayName());
         player.playSound(player.getLocation(), org.bukkit.Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1f, 1f);
 
         // TODO: tambahkan logic beli item / deduct points sesuai keinginan

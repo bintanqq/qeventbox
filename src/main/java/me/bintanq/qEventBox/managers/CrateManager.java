@@ -37,7 +37,7 @@ public class CrateManager {
             profileField.setAccessible(true);
             profileField.set(meta, profile);
         } catch (Exception e) {
-            e.printStackTrace();
+            plugin.getLogger().warning("[QEventBox] Failed to apply head texture: " + e.getMessage());
         }
     }
 
@@ -66,13 +66,20 @@ public class CrateManager {
     }
 
     public UUID spawnCrateAt(Location loc) {
+        if (loc == null) return null;
+
         loc.getBlock().setType(Material.PLAYER_HEAD);
         ItemStack skull = new ItemStack(Material.PLAYER_HEAD);
         SkullMeta meta = (SkullMeta) skull.getItemMeta();
-        meta.setDisplayName("§bEvent Crate");
-        String texture = plugin.getConfig().getString("crate.texture", "");
-        if(!texture.isEmpty()) applyTexture(meta, texture);
-        skull.setItemMeta(meta);
+        if(meta != null) {
+            meta.setDisplayName("§bEvent Crate");
+
+            // Ambil texture dari config.yml
+            String texture = plugin.getConfig().getString("crate.texture", "");
+            if (!texture.isEmpty()) applyTexture(meta, texture);
+
+            skull.setItemMeta(meta);
+        }
 
         UUID crateId = UUID.randomUUID();
         int lifetime = plugin.getConfig().getInt("crate.lifetime-seconds", 300);
