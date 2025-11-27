@@ -1,0 +1,27 @@
+region:
+  world: world
+  min-x: -500
+  max-x: 500
+  min-z: -500
+  max-z: 500
+  min-y: 60
+
+crate:
+  lifetime-seconds: 300
+  allow-multiple-worlds: false
+  texture: "default"
+  spawn-times:
+    - "20:00"
+    - "23:15"
+  amount: 3
+
+rewards:
+  - "eventpoints:20"
+  - "item:DIAMOND:1"
+  - "command:say %player% got lucky!"
+
+messages:
+  start: "§aCrate telah muncul di {x} {y} {z}!"
+  half: "§6Crate akan hilang dalam {time} detik!"
+  expired: "§cCrate hilang karena tidak diklaim!"
+  claimed: "§b{player} §7telah mengklaim crate!"

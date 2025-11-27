@@ -1,0 +1,24 @@
+name: QEventBox
+version: '1.0'
+main: me.bintanq.qEventBox.QEventBox
+api-version: '1.21'
+authors: [ bintanq ]
+description: Your #1 Trade Plugin
+commands:
+  qeventbox:
+    description: Main admin command to control crate drops & reload
+    usage: /qeventbox <spawnauto|spawn|remove|status|reload>
+    permission: qeventbox.admin
+  eventshop:
+    description: Open event shop GUI
+    usage: /eventshop
+    permission: qeventbox.shop
+  qpoints:
+    description: Manage player event points
+    usage: /qpoints <check|give|remove|set> <player> [amount]
+    permission: qeventbox.admin
+permissions:
+  qeventbox.admin:
+    default: op
+  qeventbox.shop:
+    default: true
