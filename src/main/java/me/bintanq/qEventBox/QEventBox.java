@@ -58,13 +58,17 @@ public class QEventBox extends JavaPlugin {
 
         // Register commands & listeners
         getCommand("qeventbox").setExecutor(new QEventBoxCommand(this));
+        getCommand("qeventbox").setTabCompleter(new QEventBoxCommand(this));
         getCommand("eventshop").setExecutor(new EventShopCommand(this));
+        getCommand("eventshop").setTabCompleter(new EventShopCommand(this));
         getCommand("qpoints").setExecutor(new PointsCommand(this));
+        getCommand("qpoints").setTabCompleter(new PointsCommand(this));
+
 
         getServer().getPluginManager().registerEvents(new InteractListener(this), this);
         getServer().getPluginManager().registerEvents(new ShopListener(this), this);
 
-        getLogger().info("[QEventBox] Enabled");
+        getLogger().info("Enabled");
     }
 
     // Method untuk copy resource dari jar ke folder target
@@ -80,7 +84,7 @@ public class QEventBox extends JavaPlugin {
     public void onDisable() {
         if (crateManager != null) crateManager.cleanupAll();
         if (pointsManager != null) pointsManager.saveAll();
-        getLogger().info("[QEventBox] Disabled");
+        getLogger().info("Disabled");
     }
 
     public static QEventBox getInstance() { return instance; }

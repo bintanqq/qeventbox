@@ -26,6 +26,11 @@ public class CrateManager {
     private final QEventBox plugin;
     private final Map<UUID, CrateData> activeCrates = new ConcurrentHashMap<>();
 
+    // Flags untuk autospawn broadcast
+    private boolean autoStartBroadcasted = false;
+    private boolean autoHalfBroadcasted = false;
+    private boolean autoExpiredBroadcasted = false;
+
     public CrateManager(QEventBox plugin) {
         this.plugin = plugin;
     }
@@ -42,11 +47,7 @@ public class CrateManager {
         try {
             Class<?> clazz = target.getClass();
             Field field = null;
-
-            try {
-                field = clazz.getDeclaredField("profile");
-            } catch (NoSuchFieldException ignored) {}
-
+            try { field = clazz.getDeclaredField("profile"); } catch (NoSuchFieldException ignored) {}
             if (field == null) {
                 for (Field f : clazz.getDeclaredFields()) {
                     String name = f.getName().toLowerCase(Locale.ROOT);
@@ -56,20 +57,16 @@ public class CrateManager {
                     }
                 }
             }
-
             if (field == null) {
                 plugin.getLogger().fine("[CrateManager] No profile-like field found in " + clazz.getName());
                 return false;
             }
-
             field.setAccessible(true);
             Class<?> fieldType = field.getType();
-
             if (fieldType.isAssignableFrom(GameProfile.class)) {
                 field.set(target, profile);
                 return true;
             }
-
             try {
                 Constructor<?> ctor = fieldType.getDeclaredConstructor(GameProfile.class);
                 ctor.setAccessible(true);
@@ -77,7 +74,6 @@ public class CrateManager {
                 field.set(target, wrapperInstance);
                 return true;
             } catch (NoSuchMethodException ignored) {}
-
             for (Constructor<?> c : fieldType.getDeclaredConstructors()) {
                 Class<?>[] params = c.getParameterTypes();
                 if (params.length == 1 && params[0].isAssignableFrom(GameProfile.class)) {
@@ -87,11 +83,9 @@ public class CrateManager {
                     return true;
                 }
             }
-
             plugin.getLogger().fine("[CrateManager] Field type " + fieldType.getName() +
                     " not constructible from GameProfile for " + clazz.getName());
             return false;
-
         } catch (Throwable t) {
             plugin.getLogger().warning("[CrateManager] injectProfileReflectively failed: " + t.getMessage());
             return false;
@@ -157,8 +151,29 @@ public class CrateManager {
                     try {
                         String[] split = t.split(":");
                         LocalTime spawnTime = LocalTime.of(Integer.parseInt(split[0]), Integer.parseInt(split[1]));
+
                         if (now.getHour() == spawnTime.getHour() && now.getMinute() == spawnTime.getMinute()) {
-                            for (int i = 0; i < amount; i++) spawnRandomCrate();
+
+                            // 1x broadcast auto start
+                            if (!autoStartBroadcasted) {
+                                String msg = plugin.getConfig().getString("messages.auto",
+                                                "§e§l[QEventBox] AutoSpawn start in %world%")
+                                        .replace("%world%", plugin.getConfig().getString("region.world", "world"));
+                                broadcast(msg);
+                                autoStartBroadcasted = true;
+                            }
+
+                            // Spawn crate sesuai amount
+                            for (int i = 0; i < amount; i++) spawnCrateAtAuto();
+
+                            // Reset flags setelah 1 menit supaya bisa spawn lagi next time
+                            Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                                autoStartBroadcasted = false;
+                                autoHalfBroadcasted = false;
+                                autoExpiredBroadcasted = false;
+                            }, 20L * 60);
+
+                            break; // sudah spawn untuk waktu ini, stop loop
                         }
                     } catch (Exception ignored) {}
                 }
@@ -166,8 +181,55 @@ public class CrateManager {
         }.runTaskTimer(plugin, 0L, 20L * 60); // cek tiap 1 menit
     }
 
+    // Spawn crate khusus auto tanpa broadcast manual per crate
+    private void spawnCrateAtAuto() {
+        World world = Bukkit.getWorld(plugin.getConfig().getString("region.world", "world"));
+        if (world == null) return;
+
+        int minX = plugin.getConfig().getInt("region.min-x", -500);
+        int maxX = plugin.getConfig().getInt("region.max-x", 500);
+        int minZ = plugin.getConfig().getInt("region.min-z", -500);
+        int maxZ = plugin.getConfig().getInt("region.max-z", 500);
+        int minY = plugin.getConfig().getInt("region.min-y", 60);
+
+        Random rand = new Random();
+        for (int i = 0; i < 50; i++) {
+            int x = rand.nextInt(maxX - minX + 1) + minX;
+            int z = rand.nextInt(maxZ - minZ + 1) + minZ;
+            Location top = world.getHighestBlockAt(x, z).getLocation();
+            if (top.getBlockY() < minY) continue;
+
+            Location place = top.clone().add(0, 1, 0);
+            if (!place.getBlock().getType().isAir()) continue;
+
+            // SET BLOCK & TEXTURE
+            Block block = place.getBlock();
+            block.setType(Material.PLAYER_HEAD);
+
+            ItemStack skullItem = new ItemStack(Material.PLAYER_HEAD);
+            SkullMeta meta = (SkullMeta) skullItem.getItemMeta();
+            if (meta != null) {
+                meta.setDisplayName("§bEvent Crate");
+                String texture = plugin.getConfig().getString("crate.texture", "");
+                if (texture != null && !texture.isEmpty()) applyTextureToMeta(meta, texture);
+                skullItem.setItemMeta(meta);
+            }
+
+            String texture = plugin.getConfig().getString("crate.texture", "");
+            if (texture != null && !texture.isEmpty()) applyTextureToBlock(block, texture);
+
+            // Simpan CrateData
+            UUID crateId = UUID.randomUUID();
+            int lifetime = plugin.getConfig().getInt("crate.lifetime-seconds", 300);
+            CrateData data = new CrateData(crateId, place, lifetime, true); // true = auto spawn
+            activeCrates.put(crateId, data);
+            data.startTimer();
+            break; // spawn 1 crate per loop
+        }
+    }
+
     /* -------------------------
-       Crate Spawn
+       Crate Spawn Manual
        ------------------------- */
     public UUID spawnRandomCrate() {
         World world = Bukkit.getWorld(plugin.getConfig().getString("region.world", "world"));
@@ -215,10 +277,10 @@ public class CrateManager {
 
         UUID crateId = UUID.randomUUID();
         int lifetime = plugin.getConfig().getInt("crate.lifetime-seconds", 300);
-        CrateData data = new CrateData(crateId, loc, lifetime);
+        CrateData data = new CrateData(crateId, loc, lifetime, false); // false = manual spawn
         activeCrates.put(crateId, data);
 
-        broadcast("[QEventBox] §aCrate muncul di " + loc.getBlockX() + " " + loc.getBlockY() + " " + loc.getBlockZ());
+        broadcast("§e§l[QEventBox] §aCrate spawned in " + loc.getBlockX() + " " + loc.getBlockY() + " " + loc.getBlockZ());
         data.startTimer();
         return crateId;
     }
@@ -237,7 +299,9 @@ public class CrateManager {
         CrateData data = activeCrates.get(crateId);
         if (data == null) return;
         handleRewards(player);
-        broadcast("[QEventBox] §b" + player.getName() + " §7mengklaim crate!");
+
+        if (!data.isAutoSpawn()) broadcast("§e§l[QEventBox] §b" + player.getName() + " §7claimed the box!");
+
         data.cancel();
         activeCrates.remove(crateId);
         if (data.getLocation().getBlock().getType() == Material.PLAYER_HEAD)
@@ -252,7 +316,7 @@ public class CrateManager {
                 try {
                     int amt = Integer.parseInt(r.split(":", 2)[1]);
                     plugin.getPointsManager().addPoints(player.getUniqueId(), amt);
-                    player.sendMessage("[QEventBox] §a+" + amt + " Event Points");
+                    player.sendMessage("§e§l[QEventBox] §a+" + amt + " Event Points");
                 } catch (Exception ignored) {}
             } else if (r.startsWith("command:")) {
                 String cmd = r.split(":", 2)[1].replace("%player%", player.getName());
@@ -284,9 +348,9 @@ public class CrateManager {
     }
 
     public String getActiveCratesStatus() {
-        if (!activeCrates.isEmpty()) return "Sudah spawn!";
+        if (!activeCrates.isEmpty()) return "Has spawned!";
         List<String> spawnTimes = plugin.getConfig().getStringList("crate.spawn-times");
-        if (spawnTimes.isEmpty()) return "Belum spawn. Berikutnya: ??";
+        if (spawnTimes.isEmpty()) return "Not spawned.";
 
         LocalTime now = LocalTime.now();
         LocalTime nextSpawn = null;
@@ -312,7 +376,7 @@ public class CrateManager {
         long hours = duration.toHours();
         long minutes = duration.toMinutes() % 60;
 
-        return "Berikutnya: " + hours + " jam " + minutes + " menit";
+        return "Next Box: " + hours + " hours " + minutes + " minute";
     }
 
     private void broadcast(String msg) {
@@ -331,16 +395,19 @@ public class CrateManager {
         private int ticksLeft;
         private BukkitRunnable task;
         private boolean halfBroadcasted = false;
+        private final boolean autoSpawn;
 
-        public CrateData(UUID id, Location location, int lifetimeSeconds) {
+        public CrateData(UUID id, Location location, int lifetimeSeconds, boolean autoSpawn) {
             this.id = id;
             this.location = location;
             this.lifetimeSeconds = lifetimeSeconds;
             this.ticksLeft = lifetimeSeconds;
+            this.autoSpawn = autoSpawn;
         }
 
         public UUID getId() { return id; }
         public Location getLocation() { return location; }
+        public boolean isAutoSpawn() { return autoSpawn; }
 
         public void startTimer() {
             final int half = lifetimeSeconds / 2;
@@ -348,12 +415,25 @@ public class CrateManager {
                 @Override
                 public void run() {
                     ticksLeft--;
-                    if (!halfBroadcasted && ticksLeft <= half) {
+
+                    // Half broadcast
+                    if (autoSpawn && !autoHalfBroadcasted && ticksLeft <= half) {
+                        autoHalfBroadcasted = true;
+                        broadcast("§e§l[QEventBox] §6Auto Box will dissapeared in " + ticksLeft + " seconds!");
+                    } else if (!autoSpawn && !halfBroadcasted && ticksLeft <= half) {
                         halfBroadcasted = true;
-                        broadcast("[QEventBox] §6Crate akan hilang dalam " + ticksLeft + " detik!");
+                        broadcast("§e§l[QEventBox] §6Box will be dissapeared in " + ticksLeft + " seconds!");
                     }
+
+                    // Expired broadcast
+                    if (autoSpawn && !autoExpiredBroadcasted && ticksLeft <= 0) {
+                        autoExpiredBroadcasted = true;
+                        broadcast("§e§l[QEventBox] §cAuto Box dissapeared!");
+                    } else if (!autoSpawn && ticksLeft <= 0) {
+                        broadcast("§e§l[QEventBox] §cBox dissapeared due to unclaimed!");
+                    }
+
                     if (ticksLeft <= 0) {
-                        broadcast("[QEventBox] §cCrate hilang karena tidak diklaim!");
                         if (location.getBlock().getType() == Material.PLAYER_HEAD)
                             location.getBlock().setType(Material.AIR);
                         cancel();
