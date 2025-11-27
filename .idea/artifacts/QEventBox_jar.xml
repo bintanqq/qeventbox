@@ -1,8 +1,0 @@
-<component name="ArtifactManager">
-  <artifact type="jar" name="QEventBox:jar">
-    <output-path>$PROJECT_DIR$/out/artifacts/QEventBox_jar</output-path>
-    <root id="archive" name="QEventBox.jar">
-      <element id="module-output" name="QEventBox" />
-    </root>
-  </artifact>
-</component>
