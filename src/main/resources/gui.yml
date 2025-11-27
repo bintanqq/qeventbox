@@ -3,30 +3,34 @@ size: 54
 items:
   exchange_rewards:
     block: DIAMOND
-    display_name: "§bExchange Rewards"
+    display_name: "§eDiamond [50 Points]"
     lore:
-      - "Klik untuk menukar %qpoints% points"
+      - "§7Klik untuk membeli Diamond"
+      - ""
+      - "§cHarga: 50 Points"
     positions: [20,21,22,23,24]
+    price: 50
     command:
-      - "take_points %player% 50"
+      - "qpoints remove %player% 50"
+      - "give %player% diamond 1"
   points_display:
     block: GOLD_NUGGET
     display_name: "§eYour Points"
     lore:
-      - "Points: %qpoints%"
+      - "§aPoints: §e%qpoints%"
     positions: [4]
   crate_status:
     block: CHEST
     display_name: "§aCrate Status"
     lore:
-      - "Crate Status: %qcrate_status%"
+      - "§c%qcrate_status%"
     positions: [40]
   info:
     block: BARRIER
     display_name: "§cEvent Info"
     lore:
-      - "Event crates spawn otomatis"
-      - "Claim sebelum hilang"
+      - "§7Event crates spawn otomatis"
+      - "§7Claim sebelum hilang"
     positions: [49]
   filler:
     block: GRAY_STAINED_GLASS_PANE

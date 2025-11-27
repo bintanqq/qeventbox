@@ -18,8 +18,8 @@ public class PointsManager {
 
     public PointsManager(QEventBox plugin) {
         this.plugin = plugin;
-        this.pointsFile = new File(plugin.getDataFolder(), "points.yml");
-        if (!pointsFile.exists()) plugin.saveResource("points.yml", false);
+        this.pointsFile = new File(plugin.getDataFolder(), "points/points.yml"); // <- folder points
+        if (!pointsFile.exists()) plugin.saveResource("points.yml", false); // dari resources root
         this.pointsCfg = YamlConfiguration.loadConfiguration(pointsFile);
         loadAll();
     }

@@ -5,15 +5,17 @@ import me.bintanq.qEventBox.gui.ShopGUI;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
+import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 
-public class EventShopCommand implements CommandExecutor {
+import java.util.Collections;
+import java.util.List;
+
+public class EventShopCommand implements CommandExecutor, TabCompleter {
 
     private final QEventBox plugin;
 
-    public EventShopCommand(QEventBox plugin) {
-        this.plugin = plugin;
-    }
+    public EventShopCommand(QEventBox plugin) { this.plugin = plugin; }
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
@@ -29,9 +31,8 @@ public class EventShopCommand implements CommandExecutor {
             return true;
         }
 
-        // Buat instance ShopGUI dengan plugin
         ShopGUI shopGUI = new ShopGUI(plugin);
-        shopGUI.openShop(p); // openShop hanya butuh Player
+        shopGUI.openShop(p);
 
         return true;
     }
@@ -47,5 +48,11 @@ public class EventShopCommand implements CommandExecutor {
                     1f
             );
         }
+    }
+
+    @Override
+    public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
+        // shop cuma player & tanpa subcommand
+        return Collections.emptyList();
     }
 }

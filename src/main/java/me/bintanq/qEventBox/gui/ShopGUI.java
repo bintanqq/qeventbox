@@ -12,10 +12,11 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.Material;
 
 import java.io.File;
-import java.net.http.WebSocket;
 import java.util.List;
 
 public class ShopGUI implements Listener {
+
+
 
     private final QEventBox plugin;
     private FileConfiguration guiCfg;
@@ -25,13 +26,18 @@ public class ShopGUI implements Listener {
         loadGUIConfig();
     }
 
+    public FileConfiguration getGuiConfig() {
+        if (guiCfg == null) loadGUIConfig();
+        return guiCfg;
+    }
+
     public String getTitle() {
         return guiCfg.getString("title", "Event Shop");
     }
 
     private void loadGUIConfig() {
-        File file = new File(plugin.getDataFolder(), "gui.yml");
-        if (!file.exists()) plugin.saveResource("gui.yml", false);
+        File file = new File(plugin.getDataFolder(), "gui/gui.yml"); // <- folder gui
+        if (!file.exists()) plugin.saveResource("gui.yml", false); // ini tetap ambil dari resources root
         guiCfg = YamlConfiguration.loadConfiguration(file);
     }
 
@@ -42,7 +48,6 @@ public class ShopGUI implements Listener {
         int size = guiCfg.getInt("size", 36);
         Inventory inv = Bukkit.createInventory(null, size, title);
 
-        // iterasi items di gui.yml
         if (guiCfg.getConfigurationSection("items") != null) {
             for (String key : guiCfg.getConfigurationSection("items").getKeys(false)) {
                 String path = "items." + key;
@@ -63,7 +68,6 @@ public class ShopGUI implements Listener {
                     item.setItemMeta(meta);
                 }
 
-                // ambil slot
                 List<Integer> slots = guiCfg.getIntegerList(path + ".positions");
                 for (int slot : slots) {
                     if (slot < size) inv.setItem(slot, item);
@@ -72,5 +76,25 @@ public class ShopGUI implements Listener {
         }
 
         p.openInventory(inv);
+    }
+
+    // Mapping slot -> item key
+    public String getKeyBySlot(int slot) {
+        if (guiCfg.getConfigurationSection("items") == null) return null;
+        for (String key : guiCfg.getConfigurationSection("items").getKeys(false)) {
+            List<Integer> positions = guiCfg.getIntegerList("items." + key + ".positions");
+            if (positions.contains(slot)) return key;
+        }
+        return null;
+    }
+
+    // Ambil price item
+    public int getPrice(String key) {
+        return guiCfg.getInt("items." + key + ".price", 0);
+    }
+
+    // Ambil commands item
+    public List<String> getCommands(String key) {
+        return guiCfg.getStringList("items." + key + ".command");
     }
 }
