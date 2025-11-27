@@ -68,7 +68,7 @@ public class QEventBox extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new InteractListener(this), this);
         getServer().getPluginManager().registerEvents(new ShopListener(this), this);
 
-        getLogger().info("Enabled");
+        getLogger().info("[QEventBox] Enabled");
     }
 
     // Method untuk copy resource dari jar ke folder target
@@ -84,7 +84,7 @@ public class QEventBox extends JavaPlugin {
     public void onDisable() {
         if (crateManager != null) crateManager.cleanupAll();
         if (pointsManager != null) pointsManager.saveAll();
-        getLogger().info("Disabled");
+        getLogger().info("[QEventBox] Disabled");
     }
 
     public static QEventBox getInstance() { return instance; }

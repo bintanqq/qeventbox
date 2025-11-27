@@ -139,6 +139,21 @@ public class CrateManager {
     /* -------------------------
        AutoSpawn Task
        ------------------------- */
+    public void manualAutoSpawnOnce() {
+        int amount = plugin.getConfig().getInt("crate.amount", 1);
+
+        // 1x broadcast seperti auto spawn
+        String msg = plugin.getConfig().getString("messages.auto",
+                        "§e§l[QEventBox] AutoSpawn start in %world%")
+                .replace("%world%", plugin.getConfig().getString("region.world", "world"));
+        broadcast(msg);
+
+        // Spawn crates sesuai config
+        for (int i = 0; i < amount; i++) {
+            spawnCrateAtAuto();
+        }
+    }
+
     public void startAutoSpawnTask() {
         new BukkitRunnable() {
             @Override
@@ -182,7 +197,7 @@ public class CrateManager {
     }
 
     // Spawn crate khusus auto tanpa broadcast manual per crate
-    private void spawnCrateAtAuto() {
+    public void spawnCrateAtAuto() {
         World world = Bukkit.getWorld(plugin.getConfig().getString("region.world", "world"));
         if (world == null) return;
 

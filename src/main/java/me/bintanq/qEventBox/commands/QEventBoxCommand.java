@@ -52,7 +52,7 @@ public class QEventBoxCommand implements CommandExecutor, TabCompleter {
                 }
                 break;
             case "spawnauto":
-                cm.startAutoSpawnTask();
+                cm.manualAutoSpawnOnce();
                 sendMessage(sender,"§aAuto Box task started!");
                 break;
             case "remove":
