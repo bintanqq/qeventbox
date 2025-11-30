@@ -32,7 +32,8 @@ public class ShopGUI implements Listener {
     }
 
     public String getTitle() {
-        return guiCfg.getString("title", "Event Shop");
+        return ChatColor.translateAlternateColorCodes('&',
+                guiCfg.getString("title", "&aEvent Shop"));
     }
 
     private void loadGUIConfig() {
@@ -59,7 +60,7 @@ public class ShopGUI implements Listener {
                 display = display.replace("%qpoints%", String.valueOf(plugin.getPointsManager().getPoints(p.getUniqueId())));
                 lore.replaceAll(l -> l.replace("%qpoints%", String.valueOf(plugin.getPointsManager().getPoints(p.getUniqueId())))
                         .replace("%qcrate_status%", plugin.getCrateManager().getActiveCratesStatus()));
-
+r
                 ItemStack item = new ItemStack(mat);
                 ItemMeta meta = item.getItemMeta();
                 if (meta != null) {

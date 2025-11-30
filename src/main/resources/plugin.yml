@@ -3,7 +3,7 @@ version: '1.0'
 main: me.bintanq.qEventBox.QEventBox
 api-version: '1.21'
 authors: [ bintanq ]
-description: Your #1 Trade Plugin
+description: Spawn box for Prizes
 commands:
   qeventbox:
     description: Main admin command to control crate drops & reload
