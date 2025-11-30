@@ -19,45 +19,69 @@ public class PointsCommand implements CommandExecutor, TabCompleter {
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+        // Permission check for all subcommands
         if (!sender.hasPermission("qeventbox.admin")) {
             sendMessage(sender,"§cNo permission");
             return true;
         }
 
-        if (args.length<2) { sendMessage(sender,"Usage: /qpoints <check|give|remove|set> <player> [amount]"); return true; }
+        // Display usage if arguments are insufficient
+        if (args.length<2) {
+            sendMessage(sender,"Usage: /qpoints <check|give|remove|set> <player> [amount]");
+            return true;
+        }
 
         String sub = args[0].toLowerCase();
         Player target = Bukkit.getPlayer(args[1]);
-        if(target==null) { sendMessage(sender,"Player not online"); return true; }
+
+        // Target player must be online
+        if(target==null) {
+            sendMessage(sender,"Player not online");
+            return true;
+        }
         UUID tid = target.getUniqueId();
+
+        // Get custom point name from config
+        String pointName = plugin.getConfig().getString("points", "Points");
 
         try {
             switch(sub) {
-                case "check": sendMessage(sender,"Points: "+plugin.getPointsManager().getPoints(tid)); break;
+                case "check":
+                    // Display target's current points using the custom name
+                    sendMessage(sender,"§e"+pointName+": "+plugin.getPointsManager().getPoints(tid));
+                    break;
                 case "give":
+                    // Give points and update storage
                     int g = Integer.parseInt(args[2]);
                     plugin.getPointsManager().addPoints(tid,g);
-                    sendMessage(sender,"§aGiven "+g+" points to "+target.getName());
+                    sendMessage(sender,"§aGiven "+g+" "+pointName+" to "+target.getName());
                     break;
                 case "remove":
+                    // Remove points and update storage
                     int r = Integer.parseInt(args[2]);
                     plugin.getPointsManager().removePoints(tid,r);
-                    sendMessage(sender,"§aRemoved "+r+" points from "+target.getName());
+                    sendMessage(sender,"§aRemoved "+r+" "+pointName+" from "+target.getName());
                     break;
                 case "set":
+                    // Set player's total points and update storage
                     int s = Integer.parseInt(args[2]);
                     plugin.getPointsManager().setPoints(tid,s);
-                    sendMessage(sender,"§aSet "+target.getName()+" points to "+s);
+                    sendMessage(sender,"§aSet "+target.getName()+" "+pointName+" to "+s);
                     break;
-                default: sendMessage(sender,"Unknown subcommand");
+                default:
+                    sendMessage(sender,"Unknown subcommand");
             }
-        } catch(Exception e){ sendMessage(sender,"Bad number or usage"); }
+        } catch(Exception e){
+            // Handles missing amount argument or invalid number format
+            sendMessage(sender,"Bad number or usage");
+        }
 
         return true;
     }
 
+    // Utility method to send formatted plugin messages and sound feedback
     private void sendMessage(CommandSender sender,String msg){
-        String formatted = "\n\n§e§l[QEventBox] §r"+msg+"\n\n";
+        String formatted = "\n\n§e[QEventBox] §r"+msg+"\n\n";
         sender.sendMessage(formatted);
         if(sender instanceof Player){
             ((Player)sender).playSound(((Player)sender).getLocation(),org.bukkit.Sound.ENTITY_EXPERIENCE_ORB_PICKUP,1f,1f);
@@ -66,14 +90,17 @@ public class PointsCommand implements CommandExecutor, TabCompleter {
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
+        // Permission check for tab completion
         if (!sender.hasPermission("qeventbox.admin")) return Collections.emptyList();
 
         if (args.length == 1) {
+            // Autocomplete subcommands
             List<String> completions = new ArrayList<>();
             String current = args[0].toLowerCase();
             for (String sub : subCommands) if (sub.startsWith(current)) completions.add(sub);
             return completions;
         } else if (args.length == 2) {
+            // Autocomplete player names
             List<String> names = new ArrayList<>();
             Bukkit.getOnlinePlayers().forEach(p -> names.add(p.getName()));
             return names;

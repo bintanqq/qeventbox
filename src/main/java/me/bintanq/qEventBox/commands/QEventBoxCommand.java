@@ -2,6 +2,10 @@ package me.bintanq.qEventBox.commands;
 
 import me.bintanq.qEventBox.QEventBox;
 import me.bintanq.qEventBox.managers.CrateManager;
+import net.md_5.bungee.api.chat.ClickEvent;
+import net.md_5.bungee.api.chat.ComponentBuilder;
+import net.md_5.bungee.api.chat.HoverEvent;
+import net.md_5.bungee.api.chat.TextComponent;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.command.Command;
@@ -25,11 +29,13 @@ public class QEventBoxCommand implements CommandExecutor, TabCompleter {
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+        // Permission check for all subcommands
         if (!sender.hasPermission("qeventbox.admin")) {
             sendMessage(sender,"§cNo permission");
             return true;
         }
 
+        // Display usage if no arguments provided
         if (args.length == 0) {
             sendMessage(sender,"Usage: /qeventbox <spawn|spawnauto|remove|status|reload>");
             return true;
@@ -40,6 +46,7 @@ public class QEventBoxCommand implements CommandExecutor, TabCompleter {
 
         switch(sub) {
             case "spawn":
+                // Spawns a crate: at player's location (if player) or random location (if console)
                 if(sender instanceof Player) {
                     Player p = (Player)sender;
                     UUID id = cm.spawnCrateAt(p.getLocation());
@@ -52,25 +59,46 @@ public class QEventBoxCommand implements CommandExecutor, TabCompleter {
                 }
                 break;
             case "spawnauto":
+                // Manually triggers the auto-spawn logic once
                 cm.manualAutoSpawnOnce();
                 sendMessage(sender,"§aAuto Box task started!");
                 break;
             case "remove":
+                // Removes all active crates
                 cm.cleanupAll();
                 sendMessage(sender,"§aRemoved all crates");
                 break;
             case "status":
+                // Displays the status and location of all active crates
                 sendMessage(sender,"Active crates: " + cm.getActiveCrates().size());
-                for (CrateManager.CrateData data : cm.getActiveCrates().values()) {
-                    Location loc = data.getLocation();
-                    if (loc != null) {
-                        sendMessage(sender," - " + loc.getBlockX() + ", " + loc.getBlockY() + ", " + loc.getBlockZ() + " (" + loc.getWorld().getName() + ")");
+
+                if (sender instanceof Player) {
+                    Player p = (Player) sender;
+                    // Send clickable location components for each active crate
+                    for (CrateManager.CrateData data : cm.getActiveCrates().values()) {
+                        Location loc = data.getLocation();
+                        if (loc != null) {
+                            sendClickableLocation(p, loc);
+                        }
+                    }
+                } else {
+                    // Default console output
+                    for (CrateManager.CrateData data : cm.getActiveCrates().values()) {
+                        Location loc = data.getLocation();
+                        if (loc != null) {
+                            sendMessage(sender," - " + loc.getBlockX() + ", " + loc.getBlockY() + ", " + loc.getBlockZ() + " (" + loc.getWorld().getName() + ")");
+                        }
                     }
                 }
                 break;
             case "reload":
+                // Reloads main config and GUI config
                 plugin.reloadConfig();
-                sendMessage(sender,"§aConfig reloaded");
+
+                if (plugin.getShopGUI() != null) {
+                    plugin.getShopGUI().reloadConfig();
+                }
+                sendMessage(sender,"§aAll configurations reloaded!");
                 break;
             default:
                 sendMessage(sender,"Unknown subcommand");
@@ -78,8 +106,40 @@ public class QEventBoxCommand implements CommandExecutor, TabCompleter {
         return true;
     }
 
+    // Sends a Spigot/JSON message allowing the player to teleport by clicking the coordinates
+    private void sendClickableLocation(Player p, Location loc) {
+        int x = loc.getBlockX();
+        int y = loc.getBlockY();
+        int z = loc.getBlockZ();
+        String world = loc.getWorld().getName();
+
+        // Command to execute on click (teleports the player)
+        String cmd = "/teleport " + p.getName() + " " + x + " " + y + " " + z;
+
+        // Formatted location text
+        String locationText = " - §b[" + x + ", " + y + ", " + z + " (" + world + ")]§r";
+        String hoverText = "§eClick to Teleport.";
+
+        // Create the clickable component
+        TextComponent locationComponent = new TextComponent(locationText);
+        locationComponent.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, cmd));
+
+        // Add hover text component
+        locationComponent.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new ComponentBuilder(hoverText).create()));
+
+        // Combine with plugin header
+        TextComponent header = new TextComponent("§e[QEventBox] §r");
+        header.addExtra(locationComponent);
+
+        p.spigot().sendMessage(header); // Send JSON message
+
+        // Sound feedback
+        p.playSound(p.getLocation(),"minecraft:entity.experience_orb.pickup",1f,1f);
+    }
+
+    // Utility method to send standard (non-JSON) plugin messages
     private void sendMessage(CommandSender sender,String msg) {
-        String formatted = "\n\n§e§l[QEventBox] §r"+msg+"\n\n";
+        String formatted = "\n\n§e[QEventBox] §r"+msg+"\n\n";
         sender.sendMessage(formatted);
         if(sender instanceof Player) ((Player)sender).playSound(((Player)sender).getLocation(),"minecraft:entity.experience_orb.pickup",1f,1f);
     }
@@ -90,13 +150,13 @@ public class QEventBoxCommand implements CommandExecutor, TabCompleter {
         if (!sender.hasPermission("qeventbox.admin")) return Collections.emptyList();
 
         if (args.length == 1) {
-            // autocomplete subcommands
+            // Autocomplete subcommands
             List<String> completions = new ArrayList<>();
             String current = args[0].toLowerCase();
             for (String sub : subCommands) if (sub.startsWith(current)) completions.add(sub);
             return completions;
         } else if (args.length == 2 && args[0].equalsIgnoreCase("spawn")) {
-            // autocomplete nama player untuk spawn
+            // Autocomplete player names for /qeventbox spawn [player] (though not implemented in executor)
             List<String> names = new ArrayList<>();
             Bukkit.getOnlinePlayers().forEach(p -> names.add(p.getName()));
             return names;

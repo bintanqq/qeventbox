@@ -1,38 +1,37 @@
-title: "Event Shop"
-size: 54
+title: "QShop" # Title of the inventory GUI.
+size: 54      # Size of the inventory (must be a multiple of 9, max 54).
 items:
-  exchange_rewards:
-    block: DIAMOND
-    display_name: "§eDiamond [50 Points]"
+  diamond:
+    block: DIAMOND                                          # The Material type for the item icon.
+    display_name: "§eDiamond [50 Points]"                   # The display name of the item.
     lore:
-      - "§7Klik untuk membeli Diamond"
+      - "§7Click to Purchase Diamond"
       - ""
-      - "§cHarga: 50 Points"
-    positions: [20,21,22,23,24]
-    price: 50
+      - "§cPrice: 50 Points"
+    positions: [20,21,22,23,24]                             # List of slot indices where the item will be placed.
+    price: 50                                               # The required custom point price for this item.
     command:
-      - "qpoints remove %player% 50"
-      - "give %player% diamond 1"
+      - "give %player% diamond 1"                           # List of console commands executed upon successful purchase.
   points_display:
     block: GOLD_NUGGET
     display_name: "§eYour Points"
     lore:
-      - "§aPoints: §e%qpoints%"
+      - "§aPoints: §e%qpoints%"                             # Placeholder for displaying the player's current points.
     positions: [4]
   crate_status:
     block: CHEST
     display_name: "§aCrate Status"
     lore:
-      - "§c%qcrate_status%"
+      - "§c%qcrate_status%"                                 # Placeholder for displaying the current crate spawn status/time.
     positions: [40]
   info:
     block: BARRIER
     display_name: "§cEvent Info"
     lore:
-      - "§7Event crates spawn otomatis"
-      - "§7Claim sebelum hilang"
+      - "§7Event crates spawn automatically"
+      - "§7Claim before its gone"
     positions: [49]
   filler:
     block: GRAY_STAINED_GLASS_PANE
     display_name: " "
-    positions: [0,1,2,3,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,41,42,43,44,45,46,47,48,50,51,52,53,54]
+    positions: [0,1,2,3,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,41,42,43,44,45,46,47,48,50,51,52,53,54] # Decorative filler items (no functionality).
