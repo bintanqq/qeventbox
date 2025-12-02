@@ -215,25 +215,30 @@ public class CrateManager {
         int maxX = config.getInt("region.max-x", 500);
         int minZ = config.getInt("region.min-z", -500);
         int maxZ = config.getInt("region.max-z", 500);
+
         int minY = config.getInt("region.min-y", 60);
         int maxY = config.getInt("region.max-y", 256);
 
         Random rand = ThreadLocalRandom.current();
+
         for (int i = 0; i < 50; i++) {
             int x = rand.nextInt(maxX - minX + 1) + minX;
             int z = rand.nextInt(maxZ - minZ + 1) + minZ;
+            for (int y = minY; y < maxY - 2; y++) {
 
-            Location top = world.getHighestBlockAt(x, z).getLocation();
+                Block floor = world.getBlockAt(x, y, z);
+                Block crateSpot = world.getBlockAt(x, y + 1, z);
+                Block airAbove = world.getBlockAt(x, y + 2, z);
 
-            if (top.getBlockY() < minY || top.getBlockY() >= maxY) continue;
+                boolean isFloorSolid = floor.getType().isSolid();
 
-            Location place = top.clone().add(0, 1, 0);
+                boolean isSpaceAir = crateSpot.getType().isAir() && airAbove.getType().isAir();
 
-            if (place.getBlockY() > maxY) continue;
-
-            if (!place.getBlock().getType().isAir()) continue;
-
-            return spawnCrateAt(place);
+                if (isFloorSolid && isSpaceAir) {
+                    Location place = new Location(world, x, y + 1, z);
+                    return spawnCrateAt(place);
+                }
+            }
         }
 
         return null;
