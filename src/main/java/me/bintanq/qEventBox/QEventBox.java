@@ -3,9 +3,11 @@ package me.bintanq.qEventBox;
 import me.bintanq.qEventBox.commands.EventShopCommand;
 import me.bintanq.qEventBox.commands.PointsCommand;
 import me.bintanq.qEventBox.commands.QEventBoxCommand;
+import me.bintanq.qEventBox.commands.RegionWandCommand;
 import me.bintanq.qEventBox.gui.ShopGUI;
 import me.bintanq.qEventBox.listeners.InteractListener;
 import me.bintanq.qEventBox.listeners.PlayerListener;
+import me.bintanq.qEventBox.listeners.RegionWandListener;
 import me.bintanq.qEventBox.listeners.ShopListener;
 import me.bintanq.qEventBox.managers.CrateManager;
 import me.bintanq.qEventBox.managers.PointsManager;
@@ -26,6 +28,8 @@ public class QEventBox extends JavaPlugin {
     private CrateManager crateManager;
     private PointsManager pointsManager;
     private ShopGUI shopGUI;
+    private RegionWandListener regionWandListener;
+
 
     @Override
     public void onLoad() { instance = this; }
@@ -62,6 +66,7 @@ public class QEventBox extends JavaPlugin {
 
         // Initialize ShopGUI instance (required before listeners and tasks)
         this.shopGUI = new ShopGUI(this);
+        this.regionWandListener = new RegionWandListener(this);
 
         // Start repeating tasks (Auto-Save and Shop Update)
         startPointsAutoSaveTask();
@@ -74,12 +79,17 @@ public class QEventBox extends JavaPlugin {
         getCommand("eventshop").setTabCompleter(new EventShopCommand(this));
         getCommand("qpoints").setExecutor(new PointsCommand(this));
         getCommand("qpoints").setTabCompleter(new PointsCommand(this));
+        RegionWandCommand wandExecutor = new RegionWandCommand(this, regionWandListener);
+        getCommand("qwand").setExecutor(new RegionWandCommand(this, regionWandListener)); // Link ke listener
+        getCommand("qwand").setTabCompleter(new RegionWandCommand(this, regionWandListener)); // Link ke listener
 
 
         // Register event listeners
         getServer().getPluginManager().registerEvents(new InteractListener(this), this);
         getServer().getPluginManager().registerEvents(new ShopListener(this), this);
         getServer().getPluginManager().registerEvents(new PlayerListener(this), this);
+        getServer().getPluginManager().registerEvents(regionWandListener, this);
+
 
         getLogger().info("[QEventBox] Enabled");
     }

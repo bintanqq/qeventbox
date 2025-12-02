@@ -1,13 +1,16 @@
 region:
-  world: world # The world name where crates will spawn.
+  world:
+    - world # World1
+    - world_nether # The world name where crates will spawn.
   min-x: -500 # Minimum X boundary for random crate spawning.
   max-x: 500  # Maximum X boundary for random crate spawning.
   min-z: -500 # Minimum Z boundary for random crate spawning.
   max-z: 500  # Maximum Z boundary for random crate spawning.
-  min-y: 60   # Minimum Y level for crates to spawn (to avoid caves/void).
+  min-y: 60 # Minimum Y level for crates to spawn (to avoid caves/void).
+  max-y: 256 # Maximum Y level for crates to spawn (to avoid caves/void).
 
 crate:
-  lifetime-seconds: 60 # Duration (in seconds) before an unclaimed crate disappears.
+  lifetime-seconds: 120 # Duration (in seconds) before an unclaimed crate disappears.
   # Base64 texture string for the custom player head crate.
   # you can get texture in https://minecraft-heads.com/
   texture: "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvNmYwMDk5MWFlNzljYWMzNGUzNTgzNTdjMTNkYjY5Y2E2ZmVkODJiOGE1OWE5MjE4OWYzZmU0ZmRiMmU0ZTU4OSJ9fX0="
@@ -17,9 +20,20 @@ crate:
   amount: 5 # Number of crates to spawn simultaneously during auto-spawn.
 
 rewards:
-  - "eventpoints:20" # Grants 20 of the custom defined points (QCoin).
-  - "item:DIAMOND:1" # Grants 1 Diamond item.
-  # Other formats supported: command:[command]
+  # CHANCE | REWARD:DATA
+  - "100%|eventpoints:20"
+  - "50%|item:DIAMOND:1"
+  - "10%|item:GOLD_INGOT:5"
+  - "5%|command:give %player% super_sword 1"
+
+wand-item: # Item to set Region use /qwand give
+  material: GOLDEN_AXE
+  name: "&e&lQEventBox Region Wand"
+  lore:
+    - "&7Left Click: Set Pos 1"
+    - "&7Right Click: Set Pos 2"
+    - ""
+    - "&eUse &c/qwand &esave to save region."
 
 messages:
   start: "§aBox has appeared in {x} {y} {z}!" # Broadcast message when a crate is manually spawned.

@@ -9,6 +9,7 @@ import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
+import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.SkullMeta;
@@ -20,13 +21,15 @@ import java.time.Duration;
 import java.time.LocalTime;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ThreadLocalRandom;
 
 public class CrateManager {
 
     private final QEventBox plugin;
     private final Map<UUID, CrateData> activeCrates = new ConcurrentHashMap<>();
 
-    // Flags for preventing repeated broadcast during the auto-spawn sequence
+    private final Set<String> worldsSpawnedIn = ConcurrentHashMap.newKeySet();
+
     private boolean autoStartBroadcasted = false;
     private boolean autoHalfBroadcasted = false;
     private boolean autoExpiredBroadcasted = false;
@@ -39,10 +42,7 @@ public class CrateManager {
         return activeCrates;
     }
 
-    /* -------------------------
-       Reflection / Texture Helpers
-       ------------------------- */
-    // Uses reflection to inject the GameProfile (texture data) into an object (SkullMeta or BlockState)
+    // --- Reflection / Texture Helpers ---
     private boolean injectProfileReflectively(Object target, GameProfile profile) {
         if (target == null || profile == null) return false;
         try {
@@ -89,7 +89,6 @@ public class CrateManager {
         }
     }
 
-    // Creates a GameProfile object from a Base64 texture string
     private GameProfile makeProfileFromBase64(String base64) {
         if (base64 == null || base64.isEmpty()) return null;
         try {
@@ -101,7 +100,6 @@ public class CrateManager {
         }
     }
 
-    // Applies the texture Base64 string to a SkullMeta
     private boolean applyTextureToMeta(SkullMeta meta, String base64) {
         if (meta == null || base64 == null || base64.isEmpty()) return false;
         try {
@@ -113,7 +111,6 @@ public class CrateManager {
         }
     }
 
-    // Applies the texture Base64 string to a Player Head Block
     private boolean applyTextureToBlock(Block block, String base64) {
         if (block == null || base64 == null || base64.isEmpty()) return false;
         BlockState state = block.getState();
@@ -136,30 +133,43 @@ public class CrateManager {
     /* -------------------------
        AutoSpawn Task
        ------------------------- */
-    // Manually triggers the auto-spawn logic once (e.g., via command)
+
     public void manualAutoSpawnOnce() {
-        int amount = plugin.getConfig().getInt("crate.amount", 1);
+        FileConfiguration config = plugin.getConfig();
+        int amount = config.getInt("crate.amount", 1);
 
-        // Broadcast the start message once
-        String msg = plugin.getConfig().getString("messages.auto",
-                        "§e[QEventBox] AutoSpawn start in %world%")
-                .replace("%world%", plugin.getConfig().getString("region.world", "world"));
-        broadcast(msg);
+        int successfulSpawns = 0;
+        worldsSpawnedIn.clear();
 
-        // Spawn crates according to configured amount
         for (int i = 0; i < amount; i++) {
-            spawnCrateAtAuto();
+            UUID id = spawnRandomCrate();
+            if (id != null) {
+                successfulSpawns++;
+                CrateData data = activeCrates.get(id);
+                if (data != null && data.getLocation() != null) {
+                    worldsSpawnedIn.add(data.getLocation().getWorld().getName());
+                }
+            }
+        }
+
+        if (successfulSpawns > 0) {
+            String worldList = String.join(", ", worldsSpawnedIn);
+            String msg = config.getString("messages.auto", "§e[QEventBox] Event Box has spawned in %world%");
+
+            broadcast(msg.replace("%world%", worldList));
+        }
+
+        if (successfulSpawns == 0) {
+            plugin.getLogger().warning("[QEventBox] Failed to find safe spawn locations for any crate!");
         }
     }
 
-    // Starts the repeating task to check for configured spawn times
     public void startAutoSpawnTask() {
         new BukkitRunnable() {
             @Override
             public void run() {
                 LocalTime now = LocalTime.now();
                 List<String> spawnTimes = plugin.getConfig().getStringList("crate.spawn-times");
-                int amount = plugin.getConfig().getInt("crate.amount", 1);
 
                 for (String t : spawnTimes) {
                     try {
@@ -168,118 +178,76 @@ public class CrateManager {
 
                         if (now.getHour() == spawnTime.getHour() && now.getMinute() == spawnTime.getMinute()) {
 
-                            // Broadcast auto spawn start message once
                             if (!autoStartBroadcasted) {
-                                String msg = plugin.getConfig().getString("messages.auto",
-                                                "§e[QEventBox] AutoSpawn start in %world%")
-                                        .replace("%world%", plugin.getConfig().getString("region.world", "world"));
-                                broadcast(msg);
                                 autoStartBroadcasted = true;
+
+                                manualAutoSpawnOnce();
                             }
 
-                            // Spawn crates
-                            for (int i = 0; i < amount; i++) spawnCrateAtAuto();
-
-                            // Reset broadcast flags after 1 minute cooldown
                             Bukkit.getScheduler().runTaskLater(plugin, () -> {
                                 autoStartBroadcasted = false;
                                 autoHalfBroadcasted = false;
                                 autoExpiredBroadcasted = false;
                             }, 20L * 60);
 
-                            break; // Stop loop after successful spawn for the current minute
+                            break;
                         }
                     } catch (Exception ignored) {}
                 }
             }
-        }.runTaskTimer(plugin, 0L, 20L * 60); // Check every 1 minute
-    }
-
-    // Locates a random safe spot and spawns a crate without individual broadcast
-    public void spawnCrateAtAuto() {
-        World world = Bukkit.getWorld(plugin.getConfig().getString("region.world", "world"));
-        if (world == null) return;
-
-        int minX = plugin.getConfig().getInt("region.min-x", -500);
-        int maxX = plugin.getConfig().getInt("region.max-x", 500);
-        int minZ = plugin.getConfig().getInt("region.min-z", -500);
-        int maxZ = plugin.getConfig().getInt("region.max-z", 500);
-        int minY = plugin.getConfig().getInt("region.min-y", 60);
-
-        Random rand = new Random();
-        for (int i = 0; i < 50; i++) { // Attempt up to 50 times to find a safe location
-            int x = rand.nextInt(maxX - minX + 1) + minX;
-            int z = rand.nextInt(maxZ - minZ + 1) + minZ;
-            Location top = world.getHighestBlockAt(x, z).getLocation();
-            if (top.getBlockY() < minY) continue;
-
-            Location place = top.clone().add(0, 1, 0);
-            if (!place.getBlock().getType().isAir()) continue;
-
-            // Set block type and apply custom texture
-            Block block = place.getBlock();
-            block.setType(Material.PLAYER_HEAD);
-
-            ItemStack skullItem = new ItemStack(Material.PLAYER_HEAD);
-            SkullMeta meta = (SkullMeta) skullItem.getItemMeta();
-            if (meta != null) {
-                meta.setDisplayName("§bEvent Crate");
-                String texture = plugin.getConfig().getString("crate.texture", "");
-                if (texture != null && !texture.isEmpty()) applyTextureToMeta(meta, texture);
-                skullItem.setItemMeta(meta);
-            }
-
-            String texture = plugin.getConfig().getString("crate.texture", "");
-            if (texture != null && !texture.isEmpty()) applyTextureToBlock(block, texture);
-
-            // Save CrateData and start its lifetime timer
-            UUID crateId = UUID.randomUUID();
-            int lifetime = plugin.getConfig().getInt("crate.lifetime-seconds", 300);
-            CrateData data = new CrateData(crateId, place, lifetime, true); // true = auto spawn
-            activeCrates.put(crateId, data);
-            data.startTimer();
-            break; // Spawn successful, exit loop
-        }
+        }.runTaskTimer(plugin, 0L, 20L * 60);
     }
 
     /* -------------------------
-       Crate Spawn Manual
+       Crate Spawn Manual (CENTRALIZED)
        ------------------------- */
-    // Spawns a crate at a random, safe location within the configured region (used by commands)
+
     public UUID spawnRandomCrate() {
-        World world = Bukkit.getWorld(plugin.getConfig().getString("region.world", "world"));
+        FileConfiguration config = plugin.getConfig();
+        List<String> allowedWorlds = config.getStringList("region.world"); // Dibaca dari region.world
+        if (allowedWorlds.isEmpty()) return null;
+
+        String worldName = allowedWorlds.get(ThreadLocalRandom.current().nextInt(allowedWorlds.size()));
+        World world = Bukkit.getWorld(worldName);
         if (world == null) return null;
 
-        int minX = plugin.getConfig().getInt("region.min-x", -500);
-        int maxX = plugin.getConfig().getInt("region.max-x", 500);
-        int minZ = plugin.getConfig().getInt("region.min-z", -500);
-        int maxZ = plugin.getConfig().getInt("region.max-z", 500);
-        int minY = plugin.getConfig().getInt("region.min-y", 60);
+        int minX = config.getInt("region.min-x", -500);
+        int maxX = config.getInt("region.max-x", 500);
+        int minZ = config.getInt("region.min-z", -500);
+        int maxZ = config.getInt("region.max-z", 500);
+        int minY = config.getInt("region.min-y", 60);
+        int maxY = config.getInt("region.max-y", 256);
 
-        Random rand = new Random();
+        Random rand = ThreadLocalRandom.current();
         for (int i = 0; i < 50; i++) {
             int x = rand.nextInt(maxX - minX + 1) + minX;
             int z = rand.nextInt(maxZ - minZ + 1) + minZ;
+
             Location top = world.getHighestBlockAt(x, z).getLocation();
-            if (top.getBlockY() < minY) continue;
+
+            if (top.getBlockY() < minY || top.getBlockY() >= maxY) continue;
 
             Location place = top.clone().add(0, 1, 0);
+
+            if (place.getBlockY() > maxY) continue;
+
             if (!place.getBlock().getType().isAir()) continue;
 
-            return spawnCrateAt(place); // Use the general spawn method
+            return spawnCrateAt(place);
         }
 
         return null;
     }
 
-    // Spawns a crate at a specific location
+    /**
+     * Spawns the physical block and saves the data.
+     */
     public UUID spawnCrateAt(Location loc) {
         if (loc == null) return null;
 
         Block block = loc.getBlock();
         block.setType(Material.PLAYER_HEAD);
 
-        // Apply item skull meta (for consistency, though not strictly needed for block)
         ItemStack skullItem = new ItemStack(Material.PLAYER_HEAD);
         SkullMeta meta = (SkullMeta) skullItem.getItemMeta();
         if (meta != null) {
@@ -289,17 +257,20 @@ public class CrateManager {
             skullItem.setItemMeta(meta);
         }
 
-        // Apply texture to the block state
         String texture = plugin.getConfig().getString("crate.texture", "");
         if (texture != null && !texture.isEmpty()) applyTextureToBlock(block, texture);
 
-        // Save CrateData, broadcast, and start timer
         UUID crateId = UUID.randomUUID();
         int lifetime = plugin.getConfig().getInt("crate.lifetime-seconds", 300);
-        CrateData data = new CrateData(crateId, loc, lifetime, false); // false = manual spawn
-        activeCrates.put(crateId, data);
 
-        broadcast("§e[QEventBox] §aCrate spawned in " + loc.getBlockX() + " " + loc.getBlockY() + " " + loc.getBlockZ());
+        boolean isAutoSpawn = true;
+
+        CrateData data = new CrateData(crateId, loc, lifetime, isAutoSpawn);
+        activeCrates.put(crateId, data);
+        if (!isAutoSpawn) {
+            broadcast("§e[QEventBox] §aCrate spawned in " + loc.getWorld().getName() + " " + loc.getBlockX() + " " + loc.getBlockY() + " " + loc.getBlockZ());
+        }
+
         data.startTimer();
         return crateId;
     }
@@ -307,7 +278,7 @@ public class CrateManager {
     /* -------------------------
        Crate Management
        ------------------------- */
-    // Finds a crate based on the clicked block
+
     public Optional<CrateData> getCrateByBlock(Block b) {
         if (b == null) return Optional.empty();
         return activeCrates.values().stream()
@@ -315,7 +286,6 @@ public class CrateManager {
                 .findFirst();
     }
 
-    // Handles crate claiming: gives rewards, cancels timer, removes block
     public void claimCrate(UUID crateId, Player player) {
         CrateData data = activeCrates.get(crateId);
         if (data == null) return;
@@ -325,30 +295,58 @@ public class CrateManager {
 
         data.cancel();
         activeCrates.remove(crateId);
-        // Ensure block is a head before setting to AIR
         if (data.getLocation().getBlock().getType() == Material.PLAYER_HEAD)
             data.getLocation().getBlock().setType(Material.AIR);
     }
 
-    // Processes and gives configured rewards to the player
+    private void logWarning(String entry, String issue) {
+        plugin.getLogger().warning("==========================================================");
+        plugin.getLogger().warning("[QEventBox] CONFIG WARNING: " + issue);
+        plugin.getLogger().warning("Entry causing issue: '" + entry + "'");
+        plugin.getLogger().warning("New Format Required: 'CHANCE%|REWARD:DATA' (e.g., '50%|item:DIAMOND:1')");
+        plugin.getLogger().warning("==========================================================");
+    }
+
     private void handleRewards(Player player) {
         List<String> rewards = plugin.getConfig().getStringList("rewards");
-        for (String r : rewards) {
-            r = r.trim();
-            if (r.startsWith("eventpoints:")) {
+        Random random = ThreadLocalRandom.current();
+
+        for (String entry : rewards) {
+            entry = entry.trim();
+
+            double chance = 100.0;
+            String rewardString = entry;
+
+            if (entry.contains("%|")) {
                 try {
-                    int amt = Integer.parseInt(r.split(":", 2)[1]);
+                    String[] parts = entry.split("%\\|", 2);
+                    chance = Double.parseDouble(parts[0].trim());
+                    rewardString = parts[1].trim();
+                } catch (Exception e) {
+                    logWarning(entry, "Invalid chance value in the new reward format. Skipping this reward.");
+                    continue;
+                }
+            } else {
+                logWarning(entry, "Deprecated reward format detected! Please update this entry to the new format.");
+            }
+
+            if (random.nextDouble() * 100.0 > chance) {
+                continue;
+            }
+
+            if (rewardString.startsWith("eventpoints:")) {
+                try {
+                    int amt = Integer.parseInt(rewardString.split(":", 2)[1]);
                     plugin.getPointsManager().addPoints(player.getUniqueId(), amt);
-                    // Reward message uses "Event Points" (needs update for custom point name)
                     player.sendMessage("§e[QEventBox] §a+" + amt + " Event Points");
                 } catch (Exception ignored) {}
-            } else if (r.startsWith("command:")) {
-                String cmd = r.split(":", 2)[1].replace("%player%", player.getName());
+            } else if (rewardString.startsWith("command:")) {
+                String cmd = rewardString.split(":", 2)[1].replace("%player%", player.getName());
                 Bukkit.dispatchCommand(Bukkit.getConsoleSender(), cmd);
-            } else if (r.startsWith("item:")) {
+            } else if (rewardString.startsWith("item:")) {
                 try {
-                    String[] parts = r.split(":");
-                    Material mat = Material.getMaterial(parts[1]);
+                    String[] parts = rewardString.split(":");
+                    Material mat = Material.getMaterial(parts[1].toUpperCase());
                     int qty = Integer.parseInt(parts[2]);
                     if (mat != null) player.getInventory().addItem(new ItemStack(mat, qty));
                 } catch (Exception ignored) {}
@@ -356,7 +354,6 @@ public class CrateManager {
         }
     }
 
-    // Removes a crate without giving rewards (e.g., manual removal or expired)
     public void removeCrate(UUID crateId) {
         CrateData data = activeCrates.remove(crateId);
         if (data != null) {
@@ -366,14 +363,12 @@ public class CrateManager {
         }
     }
 
-    // Removes all active crates and clears the map
     public void cleanupAll() {
         for (UUID id : new ArrayList<>(activeCrates.keySet()))
             removeCrate(id);
         activeCrates.clear();
     }
 
-    // Calculates the status for GUI display (active or time till next spawn)
     public String getActiveCratesStatus() {
         if (!activeCrates.isEmpty()) return "Has spawned!";
         List<String> spawnTimes = plugin.getConfig().getStringList("crate.spawn-times");
@@ -382,7 +377,6 @@ public class CrateManager {
         LocalTime now = LocalTime.now();
         LocalTime nextSpawn = null;
 
-        // Find the next upcoming spawn time today
         for (String t : spawnTimes) {
             String[] split = t.split(":");
             try {
@@ -394,7 +388,6 @@ public class CrateManager {
             } catch (Exception ignored) {}
         }
 
-        // If no time found today, assume the first time tomorrow
         if (nextSpawn == null) {
             try {
                 String first = spawnTimes.get(0);
@@ -405,9 +398,8 @@ public class CrateManager {
             }
         }
 
-        // Calculate time duration until next spawn
         Duration duration = Duration.between(now, nextSpawn);
-        if (duration.isNegative()) duration = duration.plusDays(1); // Add a day if time rolled over
+        if (duration.isNegative()) duration = duration.plusDays(1);
 
         long hours = duration.toHours();
         long minutes = duration.toMinutes() % 60;
@@ -415,7 +407,6 @@ public class CrateManager {
         return "Next Box: " + hours + " hours " + minutes + " minute";
     }
 
-    // Broadcasts a message and plays a sound to all online players
     private void broadcast(String msg) {
         Bukkit.broadcastMessage(msg);
         Bukkit.getOnlinePlayers().forEach(p -> p.playSound(p.getLocation(),
@@ -425,7 +416,6 @@ public class CrateManager {
     /* -------------------------
        Inner CrateData
        ------------------------- */
-    // Data structure to hold active crate information and manage its lifecycle
     public class CrateData {
         private final UUID id;
         private final Location location;
@@ -447,7 +437,6 @@ public class CrateManager {
         public Location getLocation() { return location; }
         public boolean isAutoSpawn() { return autoSpawn; }
 
-        // Starts the repeating timer task for crate lifetime
         public void startTimer() {
             final int half = lifetimeSeconds / 2;
             task = new BukkitRunnable() {
@@ -455,7 +444,6 @@ public class CrateManager {
                 public void run() {
                     ticksLeft--;
 
-                    // Logic for half-lifetime broadcast
                     if (autoSpawn && !autoHalfBroadcasted && ticksLeft <= half) {
                         autoHalfBroadcasted = true;
                         broadcast("§e[QEventBox] §6Auto Box will dissapeared in " + ticksLeft + " seconds!");
@@ -464,7 +452,6 @@ public class CrateManager {
                         broadcast("§e[QEventBox] §6Box will be dissapeared in " + ticksLeft + " seconds!");
                     }
 
-                    // Logic for expired crate broadcast and removal
                     if (autoSpawn && !autoExpiredBroadcasted && ticksLeft <= 0) {
                         autoExpiredBroadcasted = true;
                         broadcast("§e[QEventBox] §cAuto Box dissapeared!");
@@ -480,10 +467,9 @@ public class CrateManager {
                     }
                 }
             };
-            task.runTaskTimer(plugin, 20L, 20L); // Run every 1 second (20 ticks)
+            task.runTaskTimer(plugin, 20L, 20L);
         }
 
-        // Cancels the crate lifetime timer
         public void cancel() {
             if (task != null) task.cancel();
         }

@@ -1,5 +1,5 @@
 name: QEventBox
-version: '1.0'
+version: '1.1'
 main: me.bintanq.qEventBox.QEventBox
 api-version: '1.21'
 authors: [ bintanq ]
@@ -7,19 +7,23 @@ description: Spawn box for Prizes
 commands:
   qeventbox:
     description: Main admin command to control crate drops & reload
-    usage: /qeventbox <spawnauto|spawn|remove|status|reload>
+    usage: /qeventbox <help|spawnauto|spawn|remove|status|reload>
     permission: qeventbox.admin
     aliases: [qeb, eventbox]
   eventshop:
     description: Open event shop GUI
     usage: /eventshop
-    permission: qeventbox.
+    permission: qeventbox.shop
     aliases: [qshop, eshop]
   qpoints:
     description: Manage player event points
     usage: /qpoints <check|give|remove|set> <player> [amount]
     permission: qeventbox.admin
     aliases: [qp]
+  qwand:
+    description: Manage player event points
+    usage: /qwand <give|save|reset>
+    permission: qeventbox.admin
 permissions:
   qeventbox.admin:
     default: op
