@@ -33,10 +33,17 @@ public class RegionWandCommand implements CommandExecutor, TabCompleter {
         this.listener = listener;
     }
 
+    private void sendMessage(CommandSender sender, String msg) {
+        String prefix = plugin.getConfig().getString("messages.prefix", "&e[QEventBox] &r");
+        String finalMessage = ChatColor.translateAlternateColorCodes('&', prefix + msg);
+
+        sender.sendMessage(finalMessage);
+    }
+
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (!(sender instanceof Player)) {
-            sender.sendMessage(ChatColor.RED + "[QEventBox] Command ini hanya bisa dieksekusi oleh pemain.");
+            sendMessage(sender, "&cThis command can only be executed by a player.");
             return true;
         }
 
@@ -59,7 +66,7 @@ public class RegionWandCommand implements CommandExecutor, TabCompleter {
                 handleReset(player);
                 break;
             default:
-                player.sendMessage(ChatColor.RED + "Penggunaan: /qwand <give|save|reset>");
+                sendMessage(player, "&cUsage: /qwand <give|save|reset>");
                 break;
         }
 
@@ -69,23 +76,21 @@ public class RegionWandCommand implements CommandExecutor, TabCompleter {
     private void handleGive(Player player) {
         String perm = "qeventbox.wand.give";
         if (!player.hasPermission(perm)) {
-            player.sendMessage(ChatColor.RED + "[QEventBox] No permission (" + perm + ").");
+            sendMessage(player, "&cNo permission (&f" + perm + "&c).");
             return;
         }
 
         ItemStack wand = createRegionWand();
         player.getInventory().addItem(wand);
 
-        player.sendMessage(ChatColor.translateAlternateColorCodes('&',
-                "&a&l[QEventBox] &7Anda menerima &b&lRegion Wand&7."));
-        player.sendMessage(ChatColor.translateAlternateColorCodes('&',
-                "&7Gunakan &b/qwand save &7untuk menyimpan region."));
+        sendMessage(player, "&7You received the &b&lRegion Wand&7.");
+        sendMessage(player, "&7Use &b/qwand save &7to save the region.");
     }
 
     private void handleSave(Player player) {
         String perm = "qeventbox.wand.save";
         if (!player.hasPermission(perm)) {
-            player.sendMessage(ChatColor.RED + "[QEventBox] No permission (" + perm + ").");
+            sendMessage(player, "&cNo permission (&f" + perm + "&c).");
             return;
         }
 
@@ -94,69 +99,61 @@ public class RegionWandCommand implements CommandExecutor, TabCompleter {
         Location loc2 = listener.getPos2Map().get(uuid);
 
         if (loc1 == null || loc2 == null) {
-            player.sendMessage(ChatColor.RED + "[QEventBox] Harap tentukan Posisi 1 dan Posisi 2 terlebih dahulu.");
+            sendMessage(player, "&cPlease set Position 1 and Position 2 first.");
             return;
         }
 
         if (!loc1.getWorld().equals(loc2.getWorld())) {
-            player.sendMessage(ChatColor.RED + "[QEventBox] Error: Posisi 1 dan Posisi 2 harus berada di dunia yang sama!");
+            sendMessage(player, "&cError: Position 1 and Position 2 must be in the same world!");
             return;
         }
 
-        // Hitung koordinat Min/Max (X, Y, Z)
         int minX = Math.min(loc1.getBlockX(), loc2.getBlockX());
         int maxX = Math.max(loc1.getBlockX(), loc2.getBlockX());
 
-        // NEW: Y-Axis Calculation
         int minY = Math.min(loc1.getBlockY(), loc2.getBlockY());
         int maxY = Math.max(loc1.getBlockY(), loc2.getBlockY());
 
         int minZ = Math.min(loc1.getBlockZ(), loc2.getBlockZ());
         int maxZ = Math.max(loc1.getBlockZ(), loc2.getBlockZ());
 
-        // Update config.yml
         FileConfiguration config = plugin.getConfig();
 
         config.set("region.min-x", minX);
         config.set("region.max-x", maxX);
-
-        // NEW: Menyimpan Y-Axis
         config.set("region.min-y", minY);
         config.set("region.max-y", maxY);
-
         config.set("region.min-z", minZ);
         config.set("region.max-z", maxZ);
 
-        // Tambahkan dunia ke list 'region.world'
         List<String> allowedWorlds = config.getStringList("region.world");
         World currentWorld = loc1.getWorld();
+        String worldName = currentWorld.getName();
 
-        if (!allowedWorlds.contains(currentWorld.getName())) {
-            allowedWorlds.add(currentWorld.getName());
+        if (!allowedWorlds.contains(worldName)) {
+            allowedWorlds.add(worldName);
             config.set("region.world", allowedWorlds);
-            player.sendMessage(ChatColor.translateAlternateColorCodes('&',
-                    "&e&l[QEventBox] &7Dunia &e" + currentWorld.getName() + " &7ditambahkan ke daftar region.world."));
+            sendMessage(player, "&7World &e" + worldName + " &7has been added to the region.world list.");
         } else {
-            player.sendMessage(ChatColor.translateAlternateColorCodes('&',
-                    "&e&l[QEventBox] &7Dunia &e" + currentWorld.getName() + " &7sudah ada di daftar region.world."));
+            sendMessage(player, "&7World &e" + worldName + " &7is already in the region.world list.");
         }
 
         plugin.saveConfig();
 
-        player.sendMessage(ChatColor.translateAlternateColorCodes('&',
-                "&a&l[QEventBox] &a&lRegion berhasil disimpan!"));
-        // NEW: Menambahkan output Y-Axis
-        player.sendMessage(ChatColor.translateAlternateColorCodes('&',
-                "&7Koordinat Region: &aX:&f " + minX + " to " + maxX + "&a, Y:&f " + minY + " to " + maxY + "&a, Z:&f " + minZ + " to " + maxZ + "&a."));
+        sendMessage(player, "&a&lRegion saved successfully!");
 
-        // Otomatis reset setelah save
+        String coordsMsg = "&7Region Coordinates: &aX:&f " + minX + " to " + maxX +
+                "&a, Y:&f " + minY + " to " + maxY +
+                "&a, Z:&f " + minZ + " to " + maxZ + "&a.";
+        sendMessage(player, coordsMsg);
+
         handleReset(player);
     }
 
     private void handleReset(Player player) {
         String perm = "qeventbox.wand.reset";
         if (!player.hasPermission(perm)) {
-            player.sendMessage(ChatColor.RED + "[QEventBox] No permission (" + perm + ").");
+            sendMessage(player, "&cNo permission (&f" + perm + "&c).");
             return;
         }
 
@@ -164,11 +161,8 @@ public class RegionWandCommand implements CommandExecutor, TabCompleter {
         listener.getPos1Map().remove(uuid);
         listener.getPos2Map().remove(uuid);
 
-        player.sendMessage(ChatColor.translateAlternateColorCodes('&',
-                "&a&l[QEventBox] &7Posisi wand telah &areset&7."));
+        sendMessage(player, "&7Wand positions have been &areset&7.");
     }
-
-    // --- WAND ITEM CREATION ---
 
     private ItemStack createRegionWand() {
         FileConfiguration config = plugin.getConfig();
@@ -193,8 +187,6 @@ public class RegionWandCommand implements CommandExecutor, TabCompleter {
 
         return wand;
     }
-
-    // --- TAB COMPLETER ---
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {

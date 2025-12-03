@@ -13,7 +13,6 @@ public class PlayerListener implements Listener {
         this.plugin = plugin;
     }
 
-    // Saves player data upon logout to minimize data loss
     @EventHandler
     public void onPlayerQuit(PlayerQuitEvent e) {
         plugin.getPointsManager().savePlayer(e.getPlayer().getUniqueId());

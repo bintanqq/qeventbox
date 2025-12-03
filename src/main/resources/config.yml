@@ -1,32 +1,53 @@
+# QEventBox Configuration - Coded by BintanQ
+# -------------------------------------------------------------------------------------
+# This file contains all configurations for the QEventBox plugin.
+# Please read each section carefully before making any changes.
+# -------------------------------------------------------------------------------------
+
+# Defines the boundaries and worlds for random crate spawning.
 region:
+  # List of world names where the crates are allowed to spawn.
   world:
-    - world # World1
-    - world_nether # The world name where crates will spawn.
-  min-x: -500 # Minimum X boundary for random crate spawning.
-  max-x: 500  # Maximum X boundary for random crate spawning.
-  min-z: -500 # Minimum Z boundary for random crate spawning.
-  max-z: 500  # Maximum Z boundary for random crate spawning.
-  min-y: 60 # Minimum Y level for crates to spawn (to avoid caves/void).
-  max-y: 256 # Maximum Y level for crates to spawn (to avoid caves/void).
+    - world
+    - world_nether
+  # Minimum X boundary for random crate spawning.
+  min-x: -500
+  # Maximum X boundary for random crate spawning.
+  max-x: 500
+  # Minimum Z boundary for random crate spawning.
+  min-z: -500
+  # Maximum Z boundary for random crate spawning.
+  max-z: 500
+  # Minimum Y level for crates to spawn (to avoid caves/void).
+  min-y: 60
+  # Maximum Y level for crates to spawn.
+  max-y: 256
 
+# General settings for the event crate.
 crate:
-  lifetime-seconds: 120 # Duration (in seconds) before an unclaimed crate disappears.
+  # Duration (in seconds) before an unclaimed crate disappears.
+  lifetime-seconds: 120
   # Base64 texture string for the custom player head crate.
-  # you can get texture in https://minecraft-heads.com/
+  # Get textures from sites like https://minecraft-heads.com/
   texture: "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvNmYwMDk5MWFlNzljYWMzNGUzNTgzNTdjMTNkYjY5Y2E2ZmVkODJiOGE1OWE5MjE4OWYzZmU0ZmRiMmU0ZTU4OSJ9fX0="
+  # List of 24-hour clock times when auto-spawn is triggered (e.g., "08:30").
   spawn-times:
-    - "20:00" # List of 24-hour clock times when auto-spawn is triggered.
+    - "20:00"
     - "23:15"
-  amount: 5 # Number of crates to spawn simultaneously during auto-spawn.
+  # Number of crates to spawn simultaneously during auto-spawn.
+  amount: 5
 
+# List of possible rewards when a crate is claimed.
+# Format: CHANCE%|REWARD:DATA
+# Example Rewards: 'eventpoints:amount', 'item:MATERIAL:quantity', 'command:cmd'
 rewards:
-  # CHANCE | REWARD:DATA
   - "100%|eventpoints:20"
   - "50%|item:DIAMOND:1"
   - "10%|item:GOLD_INGOT:5"
   - "5%|command:give %player% super_sword 1"
 
-wand-item: # Item to set Region use /qwand give
+# Configuration for the region selection tool (used with /qwand give).
+wand-item:
   material: GOLDEN_AXE
   name: "&e&lQEventBox Region Wand"
   lore:
@@ -35,11 +56,29 @@ wand-item: # Item to set Region use /qwand give
     - ""
     - "&eUse &c/qwand &esave to save region."
 
+# All configurable messages and the global prefix used by the plugin.
+# Note: The 'prefix' will be automatically prepended to all broadcast/player messages.
 messages:
-  start: "§aBox has appeared in {x} {y} {z}!" # Broadcast message when a crate is manually spawned.
-  half: "§6Box will disappear in {time} seconds!" # Broadcast warning when a crate reaches half its lifetime.
-  expired: "§cBox vanished due to unclaimed!" # Broadcast when a crate disappears naturally.
-  claimed: "§b{player} §7has claimed the box!" # Broadcast when a crate is successfully claimed.
-  auto: "§e[QEventBox] §aEvent Box has spawned in %world%" # Broadcast message when the auto-spawn is triggered.
+  # Global prefix prepended to most messages.
+  prefix: "&e[QEventBox] &r"
+  # Broadcast when auto-spawn occurs. (%world% = list of worlds)
+  auto-spawn-broadcast: "&aEvent Box has spawned in &b%world%"
+  # Broadcast when a crate is manually spawned. (%location% = world x y z)
+  manual-spawn-broadcast: "&aCrate spawned at %location%!"
+  # Broadcast when a crate is claimed. (%player% = player name)
+  claimed-broadcast: "&b%player% &7claimed the box!"
+  # Message sent to the claiming player for points reward. (%amount% = points received)
+  points-reward: "&a+%amount% Event Points"
+  # Broadcast warning when auto-spawned crate reaches half its lifetime. (%seconds% = time remaining)
+  half-auto: "&6Auto Box will disappear in &e%seconds% &6seconds!"
+  # Broadcast warning when manually spawned crate reaches half its lifetime.
+  half-manual: "&6Box will disappear in &e%seconds% &6seconds!"
+  # Broadcast when auto-spawned crate vanishes unclaimed.
+  expired-auto: "&cAuto Box disappeared!"
+  # Broadcast when manually spawned crate vanishes unclaimed.
+  expired-manual: "&cBox disappeared due to unclaimed!"
+  # Confirmation message sent to the claiming player.
+  claim-success: "&aYou successfully claimed the crate!"
 
-points: "QCoin" # The custom name used for the plugin's currency (replaces "Points" placeholders).
+# The custom name used for the plugin's currency (replaces "Points" placeholders).
+points: "QCoin"

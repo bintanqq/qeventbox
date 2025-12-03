@@ -4,6 +4,7 @@ import com.mojang.authlib.GameProfile;
 import com.mojang.authlib.properties.Property;
 import me.bintanq.qEventBox.QEventBox;
 import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
@@ -27,7 +28,6 @@ public class CrateManager {
 
     private final QEventBox plugin;
     private final Map<UUID, CrateData> activeCrates = new ConcurrentHashMap<>();
-
     private final Set<String> worldsSpawnedIn = ConcurrentHashMap.newKeySet();
 
     private boolean autoStartBroadcasted = false;
@@ -42,7 +42,6 @@ public class CrateManager {
         return activeCrates;
     }
 
-    // --- Reflection / Texture Helpers ---
     private boolean injectProfileReflectively(Object target, GameProfile profile) {
         if (target == null || profile == null) return false;
         try {
@@ -130,10 +129,6 @@ public class CrateManager {
         }
     }
 
-    /* -------------------------
-       AutoSpawn Task
-       ------------------------- */
-
     public void manualAutoSpawnOnce() {
         FileConfiguration config = plugin.getConfig();
         int amount = config.getInt("crate.amount", 1);
@@ -154,8 +149,7 @@ public class CrateManager {
 
         if (successfulSpawns > 0) {
             String worldList = String.join(", ", worldsSpawnedIn);
-            String msg = config.getString("messages.auto", "§e[QEventBox] Event Box has spawned in %world%");
-
+            String msg = config.getString("messages.auto-spawn-broadcast", "&aEvent Box has spawned in %world%");
             broadcast(msg.replace("%world%", worldList));
         }
 
@@ -180,7 +174,6 @@ public class CrateManager {
 
                             if (!autoStartBroadcasted) {
                                 autoStartBroadcasted = true;
-
                                 manualAutoSpawnOnce();
                             }
 
@@ -198,13 +191,9 @@ public class CrateManager {
         }.runTaskTimer(plugin, 0L, 20L * 60);
     }
 
-    /* -------------------------
-       Crate Spawn Manual (CENTRALIZED)
-       ------------------------- */
-
     public UUID spawnRandomCrate() {
         FileConfiguration config = plugin.getConfig();
-        List<String> allowedWorlds = config.getStringList("region.world"); // Dibaca dari region.world
+        List<String> allowedWorlds = config.getStringList("region.world");
         if (allowedWorlds.isEmpty()) return null;
 
         String worldName = allowedWorlds.get(ThreadLocalRandom.current().nextInt(allowedWorlds.size()));
@@ -231,12 +220,11 @@ public class CrateManager {
                 Block airAbove = world.getBlockAt(x, y + 2, z);
 
                 boolean isFloorSolid = floor.getType().isSolid();
-
                 boolean isSpaceAir = crateSpot.getType().isAir() && airAbove.getType().isAir();
 
                 if (isFloorSolid && isSpaceAir) {
                     Location place = new Location(world, x, y + 1, z);
-                    return spawnCrateAt(place);
+                    return spawnCrateAt(place, true);
                 }
             }
         }
@@ -244,10 +232,11 @@ public class CrateManager {
         return null;
     }
 
-    /**
-     * Spawns the physical block and saves the data.
-     */
     public UUID spawnCrateAt(Location loc) {
+        return spawnCrateAt(loc, false);
+    }
+
+    public UUID spawnCrateAt(Location loc, boolean isAutoSpawn) {
         if (loc == null) return null;
 
         Block block = loc.getBlock();
@@ -268,21 +257,18 @@ public class CrateManager {
         UUID crateId = UUID.randomUUID();
         int lifetime = plugin.getConfig().getInt("crate.lifetime-seconds", 300);
 
-        boolean isAutoSpawn = true;
-
         CrateData data = new CrateData(crateId, loc, lifetime, isAutoSpawn);
         activeCrates.put(crateId, data);
+
         if (!isAutoSpawn) {
-            broadcast("§e[QEventBox] §aCrate spawned in " + loc.getWorld().getName() + " " + loc.getBlockX() + " " + loc.getBlockY() + " " + loc.getBlockZ());
+            String locationString = loc.getWorld().getName() + " " + loc.getBlockX() + " " + loc.getBlockY() + " " + loc.getBlockZ();
+            String msg = plugin.getConfig().getString("messages.manual-spawn-broadcast", "&aCrate spawned at %location%!");
+            broadcast(msg.replace("%location%", locationString));
         }
 
         data.startTimer();
         return crateId;
     }
-
-    /* -------------------------
-       Crate Management
-       ------------------------- */
 
     public Optional<CrateData> getCrateByBlock(Block b) {
         if (b == null) return Optional.empty();
@@ -296,7 +282,13 @@ public class CrateManager {
         if (data == null) return;
         handleRewards(player);
 
-        if (!data.isAutoSpawn()) broadcast("§e[QEventBox] §b" + player.getName() + " §7claimed the box!");
+        String claimedSuccessMsg = plugin.getConfig().getString("messages.claim-success", "&aYou successfully claimed the crate!");
+        sendPlayerMessage(player, claimedSuccessMsg);
+
+        if (!data.isAutoSpawn()) {
+            String msg = plugin.getConfig().getString("messages.claimed-broadcast", "&b%player% &7claimed the box!");
+            broadcast(msg.replace("%player%", player.getName()));
+        }
 
         data.cancel();
         activeCrates.remove(crateId);
@@ -343,7 +335,9 @@ public class CrateManager {
                 try {
                     int amt = Integer.parseInt(rewardString.split(":", 2)[1]);
                     plugin.getPointsManager().addPoints(player.getUniqueId(), amt);
-                    player.sendMessage("§e[QEventBox] §a+" + amt + " Event Points");
+
+                    String msg = plugin.getConfig().getString("messages.points-reward", "&a+%amount% Event Points");
+                    sendPlayerMessage(player, msg.replace("%amount%", String.valueOf(amt)));
                 } catch (Exception ignored) {}
             } else if (rewardString.startsWith("command:")) {
                 String cmd = rewardString.split(":", 2)[1].replace("%player%", player.getName());
@@ -413,14 +407,21 @@ public class CrateManager {
     }
 
     private void broadcast(String msg) {
-        Bukkit.broadcastMessage(msg);
+        String prefix = plugin.getConfig().getString("messages.prefix", "&e[QEventBox] &r");
+        String finalMsg = ChatColor.translateAlternateColorCodes('&', prefix + msg);
+
+        Bukkit.broadcastMessage(finalMsg);
         Bukkit.getOnlinePlayers().forEach(p -> p.playSound(p.getLocation(),
                 "minecraft:entity.experience_orb.pickup", 1f, 1f));
     }
 
-    /* -------------------------
-       Inner CrateData
-       ------------------------- */
+    private void sendPlayerMessage(Player player, String msg) {
+        String prefix = plugin.getConfig().getString("messages.prefix", "&e[QEventBox] &r");
+        String finalMsg = ChatColor.translateAlternateColorCodes('&', prefix + msg);
+        player.sendMessage(finalMsg);
+        player.playSound(player.getLocation(), "minecraft:entity.experience_orb.pickup", 1f, 1f);
+    }
+
     public class CrateData {
         private final UUID id;
         private final Location location;
@@ -448,20 +449,25 @@ public class CrateManager {
                 @Override
                 public void run() {
                     ticksLeft--;
+                    String msg;
 
                     if (autoSpawn && !autoHalfBroadcasted && ticksLeft <= half) {
                         autoHalfBroadcasted = true;
-                        broadcast("§e[QEventBox] §6Auto Box will dissapeared in " + ticksLeft + " seconds!");
+                        msg = plugin.getConfig().getString("messages.half-auto", "&6Auto Box will disappear in %seconds% seconds!");
+                        broadcast(msg.replace("%seconds%", String.valueOf(ticksLeft)));
                     } else if (!autoSpawn && !halfBroadcasted && ticksLeft <= half) {
                         halfBroadcasted = true;
-                        broadcast("§e[QEventBox] §6Box will be dissapeared in " + ticksLeft + " seconds!");
+                        msg = plugin.getConfig().getString("messages.half-manual", "&6Box will disappear in %seconds% seconds!");
+                        broadcast(msg.replace("%seconds%", String.valueOf(ticksLeft)));
                     }
 
                     if (autoSpawn && !autoExpiredBroadcasted && ticksLeft <= 0) {
                         autoExpiredBroadcasted = true;
-                        broadcast("§e[QEventBox] §cAuto Box dissapeared!");
+                        msg = plugin.getConfig().getString("messages.expired-auto", "&cAuto Box disappeared!");
+                        broadcast(msg);
                     } else if (!autoSpawn && ticksLeft <= 0) {
-                        broadcast("§e[QEventBox] §cBox dissapeared due to unclaimed!");
+                        msg = plugin.getConfig().getString("messages.expired-manual", "&cBox disappeared due to unclaimed!");
+                        broadcast(msg);
                     }
 
                     if (ticksLeft <= 0) {

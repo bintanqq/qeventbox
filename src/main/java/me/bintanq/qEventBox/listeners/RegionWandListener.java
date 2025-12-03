@@ -31,6 +31,13 @@ public class RegionWandListener implements Listener {
     public HashMap<UUID, Location> getPos1Map() { return pos1Map; }
     public HashMap<UUID, Location> getPos2Map() { return pos2Map; }
 
+    private void sendWandMessage(Player p, String message) {
+        FileConfiguration config = plugin.getConfig();
+        String prefix = config.getString("messages.prefix", "&e[QEventBox] &r");
+        String finalMessage = ChatColor.translateAlternateColorCodes('&', prefix + message);
+        p.sendMessage(finalMessage);
+    }
+
     private boolean isRegionWand(ItemStack item) {
         if (item == null || !item.hasItemMeta()) return false;
 
@@ -72,22 +79,21 @@ public class RegionWandListener implements Listener {
             event.setCancelled(true);
             Location loc = clickedBlock.getLocation();
             pos1Map.put(player.getUniqueId(), loc);
-            player.sendMessage(ChatColor.translateAlternateColorCodes('&',
-                    "&a&l[QEventBox] &7Posisi 1 diatur: &a" + formatLocation(loc)));
+
+            sendWandMessage(player, "&7Position 1 set to: &a" + formatLocation(loc));
 
         } else if (event.getAction() == Action.RIGHT_CLICK_BLOCK) {
             event.setCancelled(true);
 
             if (player.isSneaking()) {
-                player.sendMessage(ChatColor.translateAlternateColorCodes('&',
-                        "&e&l[QEventBox] &7Gunakan &b/qwand save &7untuk menyimpan region!"));
+                sendWandMessage(player, "&7Use &b/qwand save &7to save the region!");
                 return;
             }
 
             Location loc = clickedBlock.getLocation();
             pos2Map.put(player.getUniqueId(), loc);
-            player.sendMessage(ChatColor.translateAlternateColorCodes('&',
-                    "&a&l[QEventBox] &7Posisi 2 diatur: &c" + formatLocation(loc)));
+
+            sendWandMessage(player, "&7Position 2 set to: &c" + formatLocation(loc));
         }
     }
 

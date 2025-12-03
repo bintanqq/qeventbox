@@ -7,6 +7,7 @@ import net.md_5.bungee.api.chat.ComponentBuilder;
 import net.md_5.bungee.api.chat.HoverEvent;
 import net.md_5.bungee.api.chat.TextComponent;
 import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.command.Command;
@@ -29,6 +30,18 @@ public class QEventBoxCommand implements CommandExecutor, TabCompleter {
 
     public QEventBoxCommand(QEventBox plugin) { this.plugin = plugin; }
 
+    private void sendMessage(CommandSender sender, String msg) {
+        String prefix = plugin.getConfig().getString("messages.prefix", "&e[QEventBox] &r");
+        String finalMessage = ChatColor.translateAlternateColorCodes('&', prefix + msg);
+
+        sender.sendMessage(finalMessage);
+
+        if (sender instanceof Player) {
+            ((Player)sender).playSound(((Player)sender).getLocation(), "minecraft:entity.experience_orb.pickup", 1f, 1f);
+        }
+    }
+
+
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
 
@@ -40,20 +53,17 @@ public class QEventBoxCommand implements CommandExecutor, TabCompleter {
             sendMessage(sender, "&b/qeventbox remove &7- Remove all currently active crates.");
             sendMessage(sender, "&b/qeventbox reload &7- Reload the plugin configuration.");
 
-            // Referensi ke command Wand yang terpisah
             sendMessage(sender, "&b/qwand &7- Manage the crate region wand.");
             return true;
         }
 
-        // Permission check for all subcommands
         if (!sender.hasPermission("qeventbox.admin")) {
-            sendMessage(sender,"§cNo permission!"); // English message
+            sendMessage(sender,"&cNo permission!");
             return true;
         }
 
-        // Display usage if no arguments provided
         if (args.length == 0) {
-            sendMessage(sender,"Usage: /qeventbox <spawn|spawnauto|remove|status|reload>"); // English message
+            sendMessage(sender,"&cUsage: /qeventbox <spawn|spawnauto|remove|status|reload>");
             return true;
         }
 
@@ -62,43 +72,37 @@ public class QEventBoxCommand implements CommandExecutor, TabCompleter {
 
         switch(sub) {
             case "spawn":
-                // Spawns a crate: at player's location (if player) or random location (if console)
                 if(sender instanceof Player) {
                     Player p = (Player)sender;
                     UUID id = cm.spawnCrateAt(p.getLocation());
-                    if(id!=null) sendMessage(sender,"§aCrate spawned at your location (ID: "+id+")"); // English message
-                    else sendMessage(sender,"§cFailed to spawn crate at your location."); // English message
+                    if(id!=null) sendMessage(sender,"&aCrate spawned at your location (ID: "+id+")");
+                    else sendMessage(sender,"&cFailed to spawn crate at your location.");
                 } else {
                     UUID id = cm.spawnRandomCrate();
-                    if(id!=null) sendMessage(sender,"§aCrate spawned at random location (ID: "+id+")"); // English message
-                    else sendMessage(sender,"§cFailed to find location to spawn crate."); // English message
+                    if(id!=null) sendMessage(sender,"&aCrate spawned at random location (ID: "+id+")");
+                    else sendMessage(sender,"&cFailed to find location to spawn crate.");
                 }
                 break;
             case "spawnauto":
-                // Manually triggers the auto-spawn logic once
                 cm.manualAutoSpawnOnce();
-                sendMessage(sender,"§aAuto Box task started!"); // English message
+                sendMessage(sender,"&aAuto Box task started!");
                 break;
             case "remove":
-                // Removes all active crates
                 cm.cleanupAll();
-                sendMessage(sender,"§aAll active crates cleared."); // English message
+                sendMessage(sender,"&aAll active crates cleared.");
                 break;
             case "status":
-                // Displays the status and location of all active crates
-                sendMessage(sender,"Active crates: " + cm.getActiveCrates().size()); // English message
+                sendMessage(sender,"&7Active crates: &a" + cm.getActiveCrates().size());
 
                 if (sender instanceof Player) {
                     Player p = (Player) sender;
-                    // Send clickable location components for each active crate
                     for (CrateManager.CrateData data : cm.getActiveCrates().values()) {
                         Location loc = data.getLocation();
                         if (loc != null) {
-                            sendClickableLocation(p, loc); // Menggunakan fungsi baru
+                            sendClickableLocation(p, loc);
                         }
                     }
                 } else {
-                    // Default console output
                     for (CrateManager.CrateData data : cm.getActiveCrates().values()) {
                         Location loc = data.getLocation();
                         if (loc != null) {
@@ -108,13 +112,12 @@ public class QEventBoxCommand implements CommandExecutor, TabCompleter {
                 }
                 break;
             case "reload":
-                // Reloads main config and GUI config
                 plugin.reloadConfig();
 
                 if (plugin.getShopGUI() != null) {
                     plugin.getShopGUI().reloadConfig();
                 }
-                sendMessage(sender,"§aAll configurations reloaded!"); // English message
+                sendMessage(sender,"&aAll configurations reloaded!");
                 break;
 
             case "tpworld":
@@ -129,25 +132,24 @@ public class QEventBoxCommand implements CommandExecutor, TabCompleter {
 
                     World targetWorld = Bukkit.getWorld(targetWorldName);
                     if (targetWorld == null) {
-                        p.sendMessage("§cWorld " + targetWorldName + " not found!"); // English message
+                        sendMessage(p, "&cWorld " + targetWorldName + " not found!");
                         return true;
                     }
 
                     Location targetLoc = new Location(targetWorld, tx, ty, tz, p.getLocation().getYaw(), p.getLocation().getPitch());
                     p.teleport(targetLoc);
-                    p.sendMessage("§aTeleported to crate location in §b" + targetWorldName); // English message
+                    sendMessage(p, "&aTeleported to crate location in &b" + targetWorldName);
 
                 } catch (NumberFormatException e) {
                 }
                 break;
 
             default:
-                sendMessage(sender,"Unknown subcommand. Use /qeventbox help."); // English message
+                sendMessage(sender,"&cUnknown subcommand. Use /qeventbox help.");
         }
         return true;
     }
 
-    // Sends a Spigot/JSON message allowing the player to teleport by clicking the coordinates
     private void sendClickableLocation(Player p, Location loc) {
         int x = loc.getBlockX();
         int y = loc.getBlockY();
@@ -156,27 +158,26 @@ public class QEventBoxCommand implements CommandExecutor, TabCompleter {
 
         String cmd = "/qeventbox tpworld " + worldName + " " + x + " " + y + " " + z;
 
+        String prefixString = plugin.getConfig().getString("messages.prefix", "&e[QEventBox] &r");
+        String formattedPrefix = ChatColor.translateAlternateColorCodes('&', prefixString);
+
         String locationText = " - §b[" + worldName + ": " + x + ", " + y + ", " + z + "]§r";
-        String hoverText = "§eClick to Teleport to " + worldName; // English message
+        String hoverText = "&eClick to Teleport to " + worldName;
 
         TextComponent locationComponent = new TextComponent(locationText);
         locationComponent.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, cmd));
-        locationComponent.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new ComponentBuilder(hoverText).create()));
 
-        TextComponent header = new TextComponent("§e[QEventBox] §r");
-        header.addExtra(locationComponent);
+        String translatedHoverText = ChatColor.translateAlternateColorCodes('&', hoverText);
+        locationComponent.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new ComponentBuilder(translatedHoverText).create()));
 
-        p.spigot().sendMessage(header);
+        TextComponent prefixComponent = new TextComponent(formattedPrefix);
+        prefixComponent.addExtra(locationComponent);
+
+        p.spigot().sendMessage(prefixComponent);
+
         p.playSound(p.getLocation(),"minecraft:entity.experience_orb.pickup",1f,1f);
     }
-    // Utility method to send standard (non-JSON) plugin messages
-    private void sendMessage(CommandSender sender,String msg) {
-        String formatted = "§e[QEventBox] §r"+msg;
-        sender.sendMessage(formatted);
-        if(sender instanceof Player) ((Player)sender).playSound(((Player)sender).getLocation(),"minecraft:entity.experience_orb.pickup",1f,1f);
-    }
 
-    // ---------------- TabCompleter ----------------
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         if (!sender.hasPermission("qeventbox.admin")) return Collections.emptyList();
@@ -191,7 +192,6 @@ public class QEventBoxCommand implements CommandExecutor, TabCompleter {
             }
             return completions;
         } else if (args.length == 2 && args[0].equalsIgnoreCase("spawn")) {
-            // Autocomplete player names for /qeventbox spawn [player]
             List<String> names = new ArrayList<>();
             Bukkit.getOnlinePlayers().forEach(p -> names.add(p.getName()));
             return names;
