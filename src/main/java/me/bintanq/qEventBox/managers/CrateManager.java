@@ -99,7 +99,7 @@ public class CrateManager {
         }
     }
 
-    private boolean applyTextureToMeta(SkullMeta meta, String base64) {
+    public boolean applyTextureToMeta(SkullMeta meta, String base64) {
         if (meta == null || base64 == null || base64.isEmpty()) return false;
         try {
             GameProfile profile = makeProfileFromBase64(base64);

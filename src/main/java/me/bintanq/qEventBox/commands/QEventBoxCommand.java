@@ -21,7 +21,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
-import java.util.Optional;
 
 public class QEventBoxCommand implements CommandExecutor, TabCompleter {
 

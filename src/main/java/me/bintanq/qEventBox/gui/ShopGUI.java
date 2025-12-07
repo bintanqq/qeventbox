@@ -13,6 +13,8 @@ import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.inventory.meta.SkullMeta; // Import diperlukan
+import me.bintanq.qEventBox.utility.SkullUtility;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -106,11 +108,46 @@ public class ShopGUI implements Listener {
                 }
 
                 ItemStack item = new ItemStack(mat);
-                ItemMeta meta = item.getItemMeta();
-                if (meta != null) {
-                    meta.setDisplayName(display);
-                    meta.setLore(finalLore);
-                    item.setItemMeta(meta);
+
+                // --- START: LOGIC DUKUNGAN PLAYER HEAD ---
+                if (mat == Material.PLAYER_HEAD) {
+
+                    String owner = guiCfg.getString(path + ".skull-owner");
+                    String texture = guiCfg.getString(path + ".skull-texture");
+
+                    item = new ItemStack(mat, 1, (short) 3);
+                    SkullMeta skullMeta = (SkullMeta) item.getItemMeta();
+
+                    if (texture != null) {
+                        // KASUS 2: Custom Base64 Texture (MEMANGGIL CRATEMANAGER)
+                        // Mengganti pemanggilan ke SkullUtility.setSkullTexture
+                        if (!applyCrateTextureToMeta(skullMeta, texture)) {
+                            plugin.getLogger().severe("FAILED to set Base64 texture for item " + key + "! Falling back to error skull.");
+                            skullMeta.setOwner("MHF_Exclamation"); // Fallback
+                        }
+
+                    } else if (owner != null && owner.equalsIgnoreCase("%player%")) {
+                        // KASUS 1: Dynamic Viewer Head
+                        skullMeta.setOwningPlayer(p);
+
+                    } else if (owner != null) {
+                        // KASUS 3: Static Username/UUID Head
+                        skullMeta.setOwner(owner);
+                    } else {
+                        skullMeta.setOwner("MHF_Question"); // Default Fallback
+                    }
+
+                    skullMeta.setDisplayName(display);
+                    skullMeta.setLore(finalLore);
+                    item.setItemMeta(skullMeta);
+
+                } else {
+                    ItemMeta meta = item.getItemMeta();
+                    if (meta != null) {
+                        meta.setDisplayName(display);
+                        meta.setLore(finalLore);
+                        item.setItemMeta(meta);
+                    }
                 }
 
                 List<Integer> slots = guiCfg.getIntegerList(path + ".positions");
@@ -119,6 +156,10 @@ public class ShopGUI implements Listener {
                 }
             }
         }
+    }
+
+    private boolean applyCrateTextureToMeta(SkullMeta meta, String base64) {
+        return plugin.getCrateManager().applyTextureToMeta(meta, base64);
     }
 
     public void updatePointsDisplay(Player p) {
